@@ -1,3 +1,8 @@
+--[[
+    ghst.lol | Da Hood
+    A comprehensive GUI script with camlock, movement, ESP, and other features
+]]
+
 -- Services
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -13,9 +18,9 @@ local Camera = workspace.CurrentCamera
 -- Configuration
 local Config = {
     -- GUI
-    UIName = "Mystic | Da Hood",
-    UISize = UDim2.new(0, 550, 0, 350),
-    UIPosition = UDim2.new(0.5, -275, 0.5, -175),
+    UIName = "ghst.lol | Da Hood",
+    UISize = UDim2.new(0, 550, 0, 450), -- Increased vertical size
+    UIPosition = UDim2.new(0.5, -275, 0.5, -225),
     UITheme = {
         Background = Color3.fromRGB(20, 20, 20),
         TopBar = Color3.fromRGB(30, 30, 30),
@@ -259,7 +264,7 @@ function GUI.Create()
         -- Tab Button
         local TabButton = Instance.new("TextButton")
         TabButton.Name = Name.."Tab"
-        TabButton.Size = UDim2.new(0, 110, 1, 0)
+        TabButton.Size = UDim2.new(0, 120, 1, 0) -- Wider tabs
         TabButton.BackgroundColor3 = Config.UITheme.TopBar
         TabButton.BorderSizePixel = 0
         TabButton.Text = Name
@@ -309,7 +314,7 @@ function GUI.Create()
     local function CreateSection(Parent, Title, Size)
         local Section = Instance.new("Frame")
         Section.Name = Title.."Section"
-        Section.Size = Size or UDim2.new(0, 250, 1, -10)
+        Section.Size = Size or UDim2.new(0, 280, 1, -10) -- Wider sections for better content fit
         Section.BackgroundColor3 = Config.UITheme.Section
         Section.BorderSizePixel = 0
         Section.Parent = Parent
@@ -1470,52 +1475,54 @@ local function UpdateESP()
             ESP.Name.Visible = false
             ESP.Health.Visible = false
             ESP.Tracer.Visible = false
-        else
-            local Character = Player.Character
-            local HRP = Character.HumanoidRootPart
-            local Humanoid = Character.Humanoid
-            
-            local Vector, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
-            
-            if not OnScreen then
-                ESP.Box.Visible = false
-                ESP.Name.Visible = false
-                ESP.Health.Visible = false
-                ESP.Tracer.Visible = false
-            else        
-                local Size = (Camera:WorldToViewportPoint(HRP.Position + Vector3.new(0, 3, 0)).Y - Camera:WorldToViewportPoint(HRP.Position - Vector3.new(0, 3, 0)).Y) / 2
-                local BoxSize = Vector2.new(Size * 1.5, Size * 3)
-                local BoxPosition = Vector2.new(Vector.X - Size * 1.5 / 2, Vector.Y - Size * 3 / 2)
-                
-                -- Update box
-                ESP.Box.Size = BoxSize
-                ESP.Box.Position = BoxPosition
-                ESP.Box.Visible = Config.ESP.BoxESP
-                ESP.Box.Color = Config.ESP.BoxColor
-                
-                -- Update name
-                ESP.Name.Text = Player.Name
-                ESP.Name.Position = Vector2.new(Vector.X, Vector.Y - Size * 3 / 2 - 15)
-                ESP.Name.Visible = Config.ESP.NameESP
-                ESP.Name.Color = Config.ESP.NameColor
-                
-                -- Update health
-                local Health = Humanoid.Health
-                local MaxHealth = Humanoid.MaxHealth
-                local HealthPercent = (Health / MaxHealth)
-                
-                ESP.Health.From = Vector2.new(BoxPosition.X - 5, BoxPosition.Y)
-                ESP.Health.To = Vector2.new(BoxPosition.X - 5, BoxPosition.Y + (BoxSize.Y * HealthPercent))
-                ESP.Health.Color = Color3.fromRGB(255 - 255 * HealthPercent, 255 * HealthPercent, 0)
-                ESP.Health.Visible = Config.ESP.HealthESP
-                
-                -- Update tracer
-                ESP.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                ESP.Tracer.To = Vector2.new(Vector.X, Vector.Y)
-                ESP.Tracer.Visible = Config.ESP.TracerESP
-                ESP.Tracer.Color = Config.ESP.TracerColor
-            end
+            continue
         end
+        
+        local Character = Player.Character
+        local HRP = Character.HumanoidRootPart
+        local Humanoid = Character.Humanoid
+        
+        local Vector, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
+        
+        if not OnScreen then
+            ESP.Box.Visible = false
+            ESP.Name.Visible = false
+            ESP.Health.Visible = false
+            ESP.Tracer.Visible = false
+            continue
+        end
+        
+        local Size = (Camera:WorldToViewportPoint(HRP.Position + Vector3.new(0, 3, 0)).Y - Camera:WorldToViewportPoint(HRP.Position - Vector3.new(0, 3, 0)).Y) / 2
+        local BoxSize = Vector2.new(Size * 1.5, Size * 3)
+        local BoxPosition = Vector2.new(Vector.X - Size * 1.5 / 2, Vector.Y - Size * 3 / 2)
+        
+        -- Update box
+        ESP.Box.Size = BoxSize
+        ESP.Box.Position = BoxPosition
+        ESP.Box.Visible = Config.ESP.BoxESP
+        ESP.Box.Color = Config.ESP.BoxColor
+        
+        -- Update name
+        ESP.Name.Text = Player.Name
+        ESP.Name.Position = Vector2.new(Vector.X, Vector.Y - Size * 3 / 2 - 15)
+        ESP.Name.Visible = Config.ESP.NameESP
+        ESP.Name.Color = Config.ESP.NameColor
+        
+        -- Update health
+        local Health = Humanoid.Health
+        local MaxHealth = Humanoid.MaxHealth
+        local HealthPercent = (Health / MaxHealth)
+        
+        ESP.Health.From = Vector2.new(BoxPosition.X - 5, BoxPosition.Y)
+        ESP.Health.To = Vector2.new(BoxPosition.X - 5, BoxPosition.Y + (BoxSize.Y * HealthPercent))
+        ESP.Health.Color = Color3.fromRGB(255 - 255 * HealthPercent, 255 * HealthPercent, 0)
+        ESP.Health.Visible = Config.ESP.HealthESP
+        
+        -- Update tracer
+        ESP.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+        ESP.Tracer.To = Vector2.new(Vector.X, Vector.Y)
+        ESP.Tracer.Visible = Config.ESP.TracerESP
+        ESP.Tracer.Color = Config.ESP.TracerColor
     end
 end
 
