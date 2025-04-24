@@ -13,16 +13,15 @@ local Camera = workspace.CurrentCamera
 -- Configuration
 local Config = {
     -- GUI
-    UIName = "ghst.lol",
-    UISize = UDim2.new(0, 550, 0, 700), -- Even taller for vertical layout
-    UIPosition = UDim2.new(0.5, -275, 0.5, -350), -- Adjusted position to keep centered
+    UIName = "Mystic | Da Hood",
+    UISize = UDim2.new(0, 550, 0, 350),
+    UIPosition = UDim2.new(0.5, -275, 0.5, -175),
     UITheme = {
-        Background = Color3.fromRGB(15, 15, 15), -- Darker black
-        TopBar = Color3.fromRGB(15, 15, 15), -- Darker black
-        Section = Color3.fromRGB(15, 15, 15), -- Darker black
-        SectionBorder = Color3.fromRGB(0, 120, 255), -- Blue border
+        Background = Color3.fromRGB(20, 20, 20),
+        TopBar = Color3.fromRGB(30, 30, 30),
+        Section = Color3.fromRGB(30, 30, 30),
         Text = Color3.fromRGB(255, 255, 255),
-        Border = Color3.fromRGB(0, 120, 255), -- Blue border
+        Border = Color3.fromRGB(40, 40, 40),
         Accent = Color3.fromRGB(0, 120, 255),
         AccentDark = Color3.fromRGB(0, 80, 170),
     },
@@ -85,21 +84,11 @@ local Config = {
     -- Silent Aim
     SilentAim = {
         Enabled = false,
-        Key = Enum.KeyCode.E,
-        KeyToggle = true,
         IgnoreKnocked = true,
         LockNearest = false,
         FOV = 100,
         FOVVisible = true,
         FOVColor = Color3.fromRGB(0, 120, 255),
-        Target = nil,
-        TargetPart = "Head",
-    },
-    
-    -- Triggerbot
-    Triggerbot = {
-        Enabled = false,
-        Delay = 0,
     },
     
     -- Desync
@@ -120,55 +109,6 @@ local Config = {
         NameColor = Color3.fromRGB(255, 255, 255),
         HealthColor = Color3.fromRGB(0, 255, 0),
         TracerColor = Color3.fromRGB(0, 120, 255),
-    },
-    
-    -- Misc Features
-    Misc = {
-        AntiStomp = false,
-        AutoStomp = false,
-        HitboxExpander = false,
-        HitboxSize = 5,
-        RapidFire = false,
-        HyperRapidFire = false,
-        FastReload = false,
-        AutoReload = false,
-        SilentReload = false,
-        AntiVoid = false,
-        AntiRPG = false,
-        ChatSpy = false,
-        AntiGrab = false,
-        AntiSit = false,
-        WallBang = false,
-        NoClip = false,
-    },
-    
-    -- Rage Features
-    Rage = {
-        NoRecoil = false,
-    },
-    
-    -- Theme Configuration
-    ThemeConfig = {
-        CustomThemes = {
-            Default = {
-                Background = Color3.fromRGB(20, 20, 20),
-                TopBar = Color3.fromRGB(30, 30, 30),
-                Section = Color3.fromRGB(30, 30, 30),
-                Text = Color3.fromRGB(255, 255, 255),
-                Accent = Color3.fromRGB(0, 120, 255),
-                Outline = Color3.fromRGB(40, 40, 40),
-            }
-        },
-        SelectedTheme = "Default",
-        CustomThemeName = "My Theme",
-    },
-    
-    -- Config System
-    ConfigSystem = {
-        Configs = {},
-        CurrentConfig = "none",
-        CurrentAutoloadConfig = "none",
-        ConfigName = "Config",
     },
 }
 
@@ -236,67 +176,12 @@ function Utility.GetClosestPlayerToMouse()
     return ClosestPlayer
 end
 
--- Get the closest player for silent aim (within FOV or nearest if lock nearest is enabled)
-function Utility.GetSilentAimTarget()
-    local Target = nil
-    local ClosestDistance = math.huge
-    local ClosestFOVDistance = math.huge
-    
-    for _, Player in pairs(Players:GetPlayers()) do
-        if Player ~= LocalPlayer and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") and Player.Character:FindFirstChild("Humanoid") and Player.Character.Humanoid.Health > 0 then
-            -- Skip knocked players if the setting is enabled
-            if not (Config.SilentAim.IgnoreKnocked and Utility.IsPlayerKnocked(Player)) then
-            
-            local Distance = (LocalPlayer.Character.HumanoidRootPart.Position - Player.Character.HumanoidRootPart.Position).Magnitude
-            local ScreenPoint = Camera:WorldToScreenPoint(Player.Character.HumanoidRootPart.Position)
-            local FOVDistance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(ScreenPoint.X, ScreenPoint.Y)).Magnitude
-            
-            -- Check if within FOV
-            if FOVDistance < Config.SilentAim.FOV then
-                if FOVDistance < ClosestFOVDistance then
-                    Target = Player
-                    ClosestFOVDistance = FOVDistance
-                end
-            end
-            
-            -- Lock nearest logic
-            if Config.SilentAim.LockNearest then
-                if Distance < ClosestDistance then
-                    Target = Player
-                    ClosestDistance = Distance
-                end
-            end
-            
-            end -- Close the not-knocked condition
-        end
-    end
-    
-    return Target
-end
-
 -- Check if a player is knocked
 function Utility.IsPlayerKnocked(Player)
     if Player and Player.Character and Player.Character:FindFirstChild("Humanoid") then
         return Player.Character.Humanoid:GetState() == Enum.HumanoidStateType.Physics
     end
     return false
-end
-
--- Get knocked players around
-function Utility.GetKnockedPlayersAround(Range)
-    local KnockedPlayers = {}
-    
-    for _, Player in pairs(Players:GetPlayers()) do
-        if Player ~= LocalPlayer and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") and Player.Character:FindFirstChild("Humanoid") then
-            local Distance = (LocalPlayer.Character.HumanoidRootPart.Position - Player.Character.HumanoidRootPart.Position).Magnitude
-            
-            if Distance <= Range and Utility.IsPlayerKnocked(Player) then
-                table.insert(KnockedPlayers, Player)
-            end
-        end
-    end
-    
-    return KnockedPlayers
 end
 
 -- Create the user interface
@@ -312,25 +197,15 @@ function GUI.Create()
     MainGUI.Parent = CoreGui
     MainGUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
-    -- Main Border Frame (Blue outline)
-    local BorderFrame = Instance.new("Frame")
-    BorderFrame.Name = "BorderFrame"
-    BorderFrame.Size = Config.UISize
-    BorderFrame.Position = Config.UIPosition
-    BorderFrame.BackgroundColor3 = Config.UITheme.Border
-    BorderFrame.BorderSizePixel = 0
-    BorderFrame.Active = true
-    BorderFrame.Draggable = true
-    BorderFrame.Parent = MainGUI
-    
-    -- Main Content Frame
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(1, -2, 1, -2)
-    MainFrame.Position = UDim2.new(0, 1, 0, 1)
+    MainFrame.Size = Config.UISize
+    MainFrame.Position = Config.UIPosition
     MainFrame.BackgroundColor3 = Config.UITheme.Background
     MainFrame.BorderSizePixel = 0
-    MainFrame.Parent = BorderFrame
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    MainFrame.Parent = MainGUI
     
     -- Create top bar
     local TopBar = Instance.new("Frame")
@@ -381,33 +256,25 @@ function GUI.Create()
     local SelectedTab = nil
     
     local function CreateTab(Name)
-        -- Tab Button Outline
-        local TabButtonOutline = Instance.new("Frame")
-        TabButtonOutline.Name = Name.."TabOutline"
-        TabButtonOutline.Size = UDim2.new(0, 80, 1, 0) -- Smaller width to fit more tabs
-        TabButtonOutline.BackgroundColor3 = Config.UITheme.Border -- Blue border
-        TabButtonOutline.BorderSizePixel = 0
-        TabButtonOutline.Parent = TabsFrame
-        
         -- Tab Button
         local TabButton = Instance.new("TextButton")
         TabButton.Name = Name.."Tab"
-        TabButton.Size = UDim2.new(1, -2, 1, -1) -- 1 pixel border on sides, bottom only
-        TabButton.Position = UDim2.new(0, 1, 0, 0) -- Positioned to create border effect
+        TabButton.Size = UDim2.new(0, 110, 1, 0)
         TabButton.BackgroundColor3 = Config.UITheme.TopBar
         TabButton.BorderSizePixel = 0
         TabButton.Text = Name
         TabButton.TextColor3 = Config.UITheme.Text
         TabButton.TextSize = 14
         TabButton.Font = Enum.Font.SourceSans
-        TabButton.Parent = TabButtonOutline
+        TabButton.Parent = TabsFrame
         
         -- Tab Content
-        local TabContent = Instance.new("Frame") -- Changed from ScrollingFrame to Frame to disable scrolling between tabs
+        local TabContent = Instance.new("ScrollingFrame")
         TabContent.Name = Name.."Content"
         TabContent.Size = UDim2.new(1, 0, 1, 0)
         TabContent.BackgroundTransparency = 1
         TabContent.BorderSizePixel = 0
+        TabContent.ScrollBarThickness = 4
         TabContent.Visible = false
         TabContent.Parent = ContentFrame
         
@@ -417,7 +284,9 @@ function GUI.Create()
         ContentLayout.Padding = UDim.new(0, 10)
         ContentLayout.Parent = TabContent
         
-        -- Removed canvas size adjustment since we're using Frame instead of ScrollingFrame
+        ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            TabContent.CanvasSize = UDim2.new(0, ContentLayout.AbsoluteContentSize.X, 0, 0)
+        end)
         
         TabButton.MouseButton1Click:Connect(function()
             if SelectedTab then
@@ -438,20 +307,12 @@ function GUI.Create()
     
     -- Create sections
     local function CreateSection(Parent, Title, Size)
-        local SectionOutline = Instance.new("Frame")
-        SectionOutline.Name = Title.."SectionOutline"
-        SectionOutline.Size = Size or UDim2.new(0, 250, 1, -20) -- Taller sections for more content
-        SectionOutline.BackgroundColor3 = Config.UITheme.SectionBorder -- Blue border
-        SectionOutline.BorderSizePixel = 0
-        SectionOutline.Parent = Parent
-        
         local Section = Instance.new("Frame")
         Section.Name = Title.."Section"
-        Section.Size = UDim2.new(1, -2, 1, -2) -- 1 pixel border 
-        Section.Position = UDim2.new(0, 1, 0, 1) -- 1 pixel offset
+        Section.Size = Size or UDim2.new(0, 250, 1, -10)
         Section.BackgroundColor3 = Config.UITheme.Section
         Section.BorderSizePixel = 0
-        Section.Parent = SectionOutline
+        Section.Parent = Parent
         
         local SectionTitle = Instance.new("TextLabel")
         SectionTitle.Name = "Title"
@@ -465,15 +326,11 @@ function GUI.Create()
         SectionTitle.Font = Enum.Font.SourceSansBold
         SectionTitle.Parent = Section
         
-        local SectionContent = Instance.new("ScrollingFrame") -- Changed to ScrollingFrame for scrollable sections
+        local SectionContent = Instance.new("Frame")
         SectionContent.Name = "Content"
         SectionContent.Size = UDim2.new(1, 0, 1, -30)
         SectionContent.Position = UDim2.new(0, 0, 0, 30)
         SectionContent.BackgroundTransparency = 1
-        SectionContent.BorderSizePixel = 0
-        SectionContent.ScrollBarThickness = 4
-        SectionContent.ScrollingDirection = Enum.ScrollingDirection.Y
-        SectionContent.CanvasSize = UDim2.new(0, 0, 0, 0) -- Will be adjusted dynamically
         SectionContent.Parent = Section
         
         local ContentLayout = Instance.new("UIListLayout")
@@ -481,11 +338,6 @@ function GUI.Create()
         ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ContentLayout.Padding = UDim.new(0, 5)
         ContentLayout.Parent = SectionContent
-        
-        -- Adjust canvas size based on content
-        ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            SectionContent.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 10)
-        end)
         
         -- Add padding
         local Padding = Instance.new("UIPadding")
@@ -725,51 +577,6 @@ function GUI.Create()
                 DropdownList.Size = UDim2.new(1, 0, 0, #Dropdown.Options * 20)
             else
                 DropdownList.Size = UDim2.new(1, 0, 0, 0)
-            end
-        end
-        
-        -- Function to refresh dropdown options
-        function Dropdown.Refresh(NewOptions, NewValue)
-            Dropdown.Options = NewOptions
-            
-            -- Update the dropdown value
-            if NewValue then
-                Dropdown.Set(NewValue)
-            elseif not table.find(NewOptions, Dropdown.Value) then
-                Dropdown.Set(NewOptions[1])
-            end
-            
-            -- Clear current option buttons
-            for _, Child in pairs(DropdownList:GetChildren()) do
-                if Child:IsA("TextButton") then
-                    Child:Destroy()
-                end
-            end
-            
-            -- Create new option buttons
-            for i, Option in pairs(Dropdown.Options) do
-                local OptionButton = Instance.new("TextButton")
-                OptionButton.Name = Option.."Option"
-                OptionButton.Size = UDim2.new(1, 0, 0, 20)
-                OptionButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-                OptionButton.BorderSizePixel = 0
-                OptionButton.Text = Option
-                OptionButton.TextColor3 = Config.UITheme.Text
-                OptionButton.TextSize = 14
-                OptionButton.Font = Enum.Font.SourceSans
-                OptionButton.TextXAlignment = Enum.TextXAlignment.Center
-                OptionButton.ZIndex = 11
-                OptionButton.Parent = DropdownList
-                
-                OptionButton.MouseButton1Click:Connect(function()
-                    Dropdown.Set(Option)
-                    Dropdown.Toggle()
-                end)
-            end
-            
-            -- Update dropdown size if open
-            if Dropdown.Open then
-                DropdownList.Size = UDim2.new(1, 0, 0, #Dropdown.Options * 20)
             end
         end
         
@@ -1151,7 +958,6 @@ function GUI.Create()
     -- Create tabs
     local MainTab = CreateTab("Main")
     local LegitTab = CreateTab("Legit")
-    local RageTab = CreateTab("Rage")
     local MovementTab = CreateTab("Movement")
     local VisualsTab = CreateTab("Visuals")
     local MiscTab = CreateTab("Misc")
@@ -1265,25 +1071,8 @@ function GUI.Create()
         Config.Camlock.TargetPart = Value
     end)
     
-    -- Triggerbot Section
-    local TriggerbotSection = CreateSection(LegitTab, "Triggerbot")
-    
-    local TriggerbotToggle = CreateToggle(TriggerbotSection, "Triggerbot", Config.Triggerbot.Enabled, function(Value)
-        Config.Triggerbot.Enabled = Value
-        
-        if Config.Triggerbot.Enabled and not TriggerbotConnection then
-            EnableTriggerbot()
-        elseif not Config.Triggerbot.Enabled and TriggerbotConnection then
-            DisableTriggerbot()
-        end
-    end)
-    
-    local TriggerbotDelaySlider = CreateSlider(TriggerbotSection, "Delay", 0, 3, Config.Triggerbot.Delay, 2, function(Value)
-        Config.Triggerbot.Delay = Value
-    end)
-    
-    -- Rage Tab
-    local KillAuraSection = CreateSection(RageTab, "Kill Aura")
+    -- Kill Aura Section
+    local KillAuraSection = CreateSection(LegitTab, "Kill Aura")
     
     local KillAuraToggle = CreateToggle(KillAuraSection, "Kill Aura", Config.KillAura.Enabled, function(Value)
         Config.KillAura.Enabled = Value
@@ -1293,15 +1082,8 @@ function GUI.Create()
         Config.KillAura.IgnoreKnocked = Value
     end)
     
-    local KillAuraRangeSlider = CreateSlider(KillAuraSection, "Kill Aura Range", 10, 250, Config.KillAura.Range, 0, function(Value)
+    local KillAuraRangeSlider = CreateSlider(KillAuraSection, "Kill Aura Range", 1, 250, Config.KillAura.Range, 0, function(Value)
         Config.KillAura.Range = Value
-    end)
-    
-    -- No Recoil Section
-    local NoRecoilSection = CreateSection(RageTab, "Gun Mods")
-    
-    local NoRecoilToggle = CreateToggle(NoRecoilSection, "No Recoil", Config.Rage.NoRecoil, function(Value)
-        Config.Rage.NoRecoil = Value
     end)
     
     -- Hit Features Section
@@ -1333,14 +1115,6 @@ function GUI.Create()
         Config.SilentAim.Enabled = Value
     end)
     
-    local KeyToggleToggle = CreateToggle(SilentAimSection, "Key Toggle", Config.SilentAim.KeyToggle, function(Value)
-        Config.SilentAim.KeyToggle = Value
-    end)
-    
-    local KeyBind = CreateKeybind(SilentAimSection, "Activation Key", Config.SilentAim.Key, function(Value)
-        Config.SilentAim.Key = Value
-    end)
-    
     local IgnoreKnockedPlayerToggle = CreateToggle(SilentAimSection, "Ignore Knocked Player", Config.SilentAim.IgnoreKnocked, function(Value)
         Config.SilentAim.IgnoreKnocked = Value
     end)
@@ -1349,11 +1123,7 @@ function GUI.Create()
         Config.SilentAim.LockNearest = Value
     end)
     
-    local ShowFOVToggle = CreateToggle(SilentAimSection, "FOV", Config.SilentAim.FOVVisible, function(Value)
-        Config.SilentAim.FOVVisible = Value
-    end)
-    
-    local FOVSlider = CreateSlider(SilentAimSection, "FOV Radius", 10, 500, Config.SilentAim.FOV, 0, function(Value)
+    local FOVSlider = CreateSlider(SilentAimSection, "FOV", 10, 500, Config.SilentAim.FOV, 0, function(Value)
         Config.SilentAim.FOV = Value
         SilentAimFOV.Radius = Value
     end)
@@ -1384,11 +1154,11 @@ function GUI.Create()
         Config.Movement.FlySpeed = Value
     end)
     
-    local SpeedToggle = CreateToggle(MovementSection, "Walkspeed", Config.Movement.SpeedEnabled, function(Value)
+    local SpeedToggle = CreateToggle(MovementSection, "Speed", Config.Movement.SpeedEnabled, function(Value)
         Config.Movement.SpeedEnabled = Value
     end)
     
-    local SpeedSlider = CreateSlider(MovementSection, "Walkspeed", 16, 1000, Config.Movement.Speed, 0, function(Value)
+    local SpeedSlider = CreateSlider(MovementSection, "Speed", 16, 1000, Config.Movement.Speed, 0, function(Value)
         Config.Movement.Speed = Value
     end)
     
@@ -1429,148 +1199,6 @@ function GUI.Create()
     
     local TracerColorPicker = CreateColorPicker(ESPSection, "Tracer Color", Config.ESP.TracerColor, function(Value)
         Config.ESP.TracerColor = Value
-    end)
-    
-    -- Misc Tab
-    local MiscSection = CreateSection(MiscTab, "Da Hood Features")
-    
-    local AntiStompToggle = CreateToggle(MiscSection, "Anti Stomp", Config.Misc.AntiStomp, function(Value)
-        Config.Misc.AntiStomp = Value
-    end)
-    
-    local AutoStompToggle = CreateToggle(MiscSection, "Auto Stomp", Config.Misc.AutoStomp, function(Value)
-        Config.Misc.AutoStomp = Value
-    end)
-    
-    -- Rapid Fire with tooltip
-    local RapidFireFrame = Instance.new("Frame")
-    RapidFireFrame.Name = "RapidFireToggle"
-    RapidFireFrame.Size = UDim2.new(1, 0, 0, 20)
-    RapidFireFrame.BackgroundTransparency = 1
-    RapidFireFrame.Parent = MiscSection
-    
-    local RapidFireButton = Instance.new("TextButton")
-    RapidFireButton.Name = "Button"
-    RapidFireButton.Size = UDim2.new(0, 20, 0, 20)
-    RapidFireButton.Position = UDim2.new(0, 0, 0, 0)
-    RapidFireButton.BackgroundColor3 = Config.Misc.RapidFire and Config.UITheme.Accent or Color3.fromRGB(40, 40, 40)
-    RapidFireButton.BorderSizePixel = 0
-    RapidFireButton.Text = ""
-    RapidFireButton.Parent = RapidFireFrame
-    
-    local RapidFireLabel = Instance.new("TextLabel")
-    RapidFireLabel.Name = "Label"
-    RapidFireLabel.Size = UDim2.new(1, -30, 1, 0)
-    RapidFireLabel.Position = UDim2.new(0, 30, 0, 0)
-    RapidFireLabel.BackgroundTransparency = 1
-    RapidFireLabel.Text = "Rapid Fire"
-    RapidFireLabel.TextColor3 = Config.UITheme.Text
-    RapidFireLabel.TextSize = 14
-    RapidFireLabel.Font = Enum.Font.SourceSans
-    RapidFireLabel.TextXAlignment = Enum.TextXAlignment.Left
-    RapidFireLabel.Parent = RapidFireFrame
-    
-    -- Create tooltip
-    local ToolTip = Instance.new("Frame")
-    ToolTip.Name = "Tooltip"
-    ToolTip.Size = UDim2.new(0, 120, 0, 25)
-    ToolTip.Position = UDim2.new(1, 10, 0, 0)
-    ToolTip.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    ToolTip.BorderSizePixel = 0
-    ToolTip.ZIndex = 10
-    ToolTip.Visible = false
-    ToolTip.Parent = RapidFireFrame
-    
-    local ToolTipText = Instance.new("TextLabel")
-    ToolTipText.Name = "Text"
-    ToolTipText.Size = UDim2.new(1, 0, 1, 0)
-    ToolTipText.BackgroundTransparency = 1
-    ToolTipText.Text = "Irreversable"
-    ToolTipText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ToolTipText.TextSize = 12
-    ToolTipText.Font = Enum.Font.SourceSans
-    ToolTipText.ZIndex = 10
-    ToolTipText.Parent = ToolTip
-    
-    -- Tooltip visibility
-    RapidFireFrame.MouseEnter:Connect(function()
-        ToolTip.Visible = true
-    end)
-    
-    RapidFireFrame.MouseLeave:Connect(function()
-        ToolTip.Visible = false
-    end)
-    
-    -- Toggle functionality
-    RapidFireButton.MouseButton1Click:Connect(function()
-        Config.Misc.RapidFire = not Config.Misc.RapidFire
-        RapidFireButton.BackgroundColor3 = Config.Misc.RapidFire and Config.UITheme.Accent or Color3.fromRGB(40, 40, 40)
-    end)
-    
-    -- Hyper Rapid Fire (positioned directly under Rapid Fire)
-    local HyperRapidFireToggle = CreateToggle(MiscSection, "Hyper Rapid Fire", Config.Misc.HyperRapidFire, function(Value)
-        Config.Misc.HyperRapidFire = Value
-    end)
-    
-    -- Fast Reload toggle
-    local FastReloadToggle = CreateToggle(MiscSection, "Fast Reload", Config.Misc.FastReload, function(Value)
-        Config.Misc.FastReload = Value
-    end)
-    
-    -- Auto Reload toggle
-    local AutoReloadToggle = CreateToggle(MiscSection, "Auto Reload", Config.Misc.AutoReload, function(Value)
-        Config.Misc.AutoReload = Value
-    end)
-    
-    -- Silent Reload toggle
-    local SilentReloadToggle = CreateToggle(MiscSection, "Silent Reload", Config.Misc.SilentReload, function(Value)
-        Config.Misc.SilentReload = Value
-    end)
-    
-    -- Anti Void toggle
-    local AntiVoidToggle = CreateToggle(MiscSection, "Anti Void", Config.Misc.AntiVoid, function(Value)
-        Config.Misc.AntiVoid = Value
-    end)
-    
-    -- Anti RPG toggle
-    local AntiRPGToggle = CreateToggle(MiscSection, "Anti RPG", Config.Misc.AntiRPG, function(Value)
-        Config.Misc.AntiRPG = Value
-    end)
-    
-    -- Chat Spy toggle
-    local ChatSpyToggle = CreateToggle(MiscSection, "Chat Spy", Config.Misc.ChatSpy, function(Value)
-        Config.Misc.ChatSpy = Value
-    end)
-    
-    -- Anti Grab toggle
-    local AntiGrabToggle = CreateToggle(MiscSection, "Anti Grab", Config.Misc.AntiGrab, function(Value)
-        Config.Misc.AntiGrab = Value
-    end)
-    
-    -- Anti Sit toggle
-    local AntiSitToggle = CreateToggle(MiscSection, "Anti Sit", Config.Misc.AntiSit, function(Value)
-        Config.Misc.AntiSit = Value
-    end)
-    
-    -- Wall Bang toggle
-    local WallBangToggle = CreateToggle(MiscSection, "Wall Bang", Config.Misc.WallBang, function(Value)
-        Config.Misc.WallBang = Value
-    end)
-    
-    -- No Clip toggle
-    local NoClipToggle = CreateToggle(MiscSection, "No Clip", Config.Misc.NoClip, function(Value)
-        Config.Misc.NoClip = Value
-    end)
-    
-    -- Hitbox Expander Section
-    local HitboxSection = CreateSection(MiscTab, "Hitbox Expander")
-    
-    local HitboxExpanderToggle = CreateToggle(HitboxSection, "Hitbox Expander", Config.Misc.HitboxExpander, function(Value)
-        Config.Misc.HitboxExpander = Value
-    end)
-    
-    local HitboxSizeSlider = CreateSlider(HitboxSection, "Hitbox Size", 5, 200, Config.Misc.HitboxSize, 0, function(Value)
-        Config.Misc.HitboxSize = Value
     end)
     
     -- UI Settings Tab
@@ -1671,779 +1299,6 @@ function GUI.Create()
         SilentAimFOV.Color = Value
     end)
     
-    -- Function to perform script unloading
-    local function UnloadScript()
-        -- Disconnect all connections
-        if FOVUpdateConnection then FOVUpdateConnection:Disconnect() end
-        if TriggerBotConnection then TriggerBotConnection:Disconnect() end
-        if CamlockConnection then CamlockConnection:Disconnect() end
-        if NoRecoilConnection then NoRecoilConnection:Disconnect() end
-        if FlyConnection then FlyConnection:Disconnect() end
-        if WalkSpeedConnection then WalkSpeedConnection:Disconnect() end
-        if SilentAimConnection then SilentAimConnection:Disconnect() end
-        if RapidFireConnection then RapidFireConnection:Disconnect() end
-        if HyperRapidFireConnection then HyperRapidFireConnection:Disconnect() end
-        if HitboxConnection then HitboxConnection:Disconnect() end
-        if AntiStompConnection then AntiStompConnection:Disconnect() end
-        if AutoStompConnection then AutoStompConnection:Disconnect() end
-        if KillAllConnection then KillAllConnection:Disconnect() end
-        if FastReloadConnection then FastReloadConnection:Disconnect() end
-        if AutoReloadConnection then AutoReloadConnection:Disconnect() end
-        if SilentReloadConnection then SilentReloadConnection:Disconnect() end
-        if AntiVoidConnection then AntiVoidConnection:Disconnect() end
-        if AntiRPGConnection then AntiRPGConnection:Disconnect() end
-        if ChatSpyConnection then ChatSpyConnection:Disconnect() end
-        if AntiGrabConnection then AntiGrabConnection:Disconnect() end
-        if AntiSitConnection then AntiSitConnection:Disconnect() end
-        if WallBangConnection then WallBangConnection:Disconnect() end
-        if NoClipConnection then NoClipConnection:Disconnect() end
-        
-        -- Remove drawing objects
-        if FOVCircle then FOVCircle:Remove() end
-        if SilentAimFOV then SilentAimFOV:Remove() end
-        
-        -- Remove any popup confirmation windows
-        if CoreGui:FindFirstChild("UnloadConfirmation") then
-            CoreGui:FindFirstChild("UnloadConfirmation"):Destroy()
-        end
-        
-        -- Remove GUI
-        if CoreGui:FindFirstChild(Config.UIName) then
-            CoreGui:FindFirstChild(Config.UIName):Destroy()
-        end
-        
-        -- Remove any other created objects
-        if CoreGui:FindFirstChild("ChatSpyFrame") then
-            CoreGui:FindFirstChild("ChatSpyFrame"):Destroy()
-        end
-        
-        -- Restore any modified states
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            -- Restore walkspeed
-            LocalPlayer.Character.Humanoid.WalkSpeed = 16
-            
-            -- Restore jump power
-            LocalPlayer.Character.Humanoid.JumpPower = 50
-            
-            -- Restore collision
-            for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                    part.CanCollide = true
-                end
-            end
-        end
-        
-        -- Notification
-        CreateNotification("ghst.lol", "Script has been unloaded successfully!", 5)
-    end
-    
-    -- Create confirmation popup function
-    local function ShowUnloadConfirmation()
-        -- Check if confirmation popup already exists
-        if CoreGui:FindFirstChild("UnloadConfirmation") then
-            CoreGui:FindFirstChild("UnloadConfirmation"):Destroy()
-        end
-        
-        -- Create confirmation popup
-        local ConfirmationGui = Instance.new("ScreenGui")
-        ConfirmationGui.Name = "UnloadConfirmation"
-        ConfirmationGui.Parent = CoreGui
-        ConfirmationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        
-        local ConfirmationFrame = Instance.new("Frame")
-        ConfirmationFrame.Name = "ConfirmationFrame"
-        ConfirmationFrame.Size = UDim2.new(0, 300, 0, 150)
-        ConfirmationFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
-        ConfirmationFrame.BackgroundColor3 = Config.UITheme.Background
-        ConfirmationFrame.BorderSizePixel = 0
-        ConfirmationFrame.Parent = ConfirmationGui
-        
-        -- Add title
-        local TitleBar = Instance.new("Frame")
-        TitleBar.Name = "TitleBar"
-        TitleBar.Size = UDim2.new(1, 0, 0, 30)
-        TitleBar.BackgroundColor3 = Config.UITheme.Accent
-        TitleBar.BorderSizePixel = 0
-        TitleBar.Parent = ConfirmationFrame
-        
-        local TitleLabel = Instance.new("TextLabel")
-        TitleLabel.Name = "Title"
-        TitleLabel.Size = UDim2.new(1, 0, 1, 0)
-        TitleLabel.BackgroundTransparency = 1
-        TitleLabel.Text = "Confirmation"
-        TitleLabel.TextColor3 = Config.UITheme.Text
-        TitleLabel.TextSize = 16
-        TitleLabel.Font = Enum.Font.SourceSansBold
-        TitleLabel.Parent = TitleBar
-        
-        -- Add confirmation message
-        local MessageLabel = Instance.new("TextLabel")
-        MessageLabel.Name = "Message"
-        MessageLabel.Size = UDim2.new(1, 0, 0, 60)
-        MessageLabel.Position = UDim2.new(0, 0, 0, 40)
-        MessageLabel.BackgroundTransparency = 1
-        MessageLabel.Text = "Are you sure you want to unload this script?"
-        MessageLabel.TextColor3 = Config.UITheme.Text
-        MessageLabel.TextSize = 16
-        MessageLabel.Font = Enum.Font.SourceSans
-        MessageLabel.Parent = ConfirmationFrame
-        
-        -- Add buttons
-        local YesButton = Instance.new("TextButton")
-        YesButton.Name = "YesButton"
-        YesButton.Size = UDim2.new(0, 100, 0, 30)
-        YesButton.Position = UDim2.new(0.25, -50, 0.8, -15)
-        YesButton.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
-        YesButton.BorderSizePixel = 0
-        YesButton.Text = "Yes"
-        YesButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        YesButton.TextSize = 16
-        YesButton.Font = Enum.Font.SourceSans
-        YesButton.Parent = ConfirmationFrame
-        
-        local NoButton = Instance.new("TextButton")
-        NoButton.Name = "NoButton"
-        NoButton.Size = UDim2.new(0, 100, 0, 30)
-        NoButton.Position = UDim2.new(0.75, -50, 0.8, -15)
-        NoButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-        NoButton.BorderSizePixel = 0
-        NoButton.Text = "No"
-        NoButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        NoButton.TextSize = 16
-        NoButton.Font = Enum.Font.SourceSans
-        NoButton.Parent = ConfirmationFrame
-        
-        -- Button connections
-        YesButton.MouseButton1Click:Connect(function()
-            UnloadScript()
-        end)
-        
-        NoButton.MouseButton1Click:Connect(function()
-            ConfirmationGui:Destroy()
-        end)
-    end
-    
-    -- Unload button
-    local UnloadButton = CreateButton(UISettingsSection, "Unload Script", function()
-        ShowUnloadConfirmation()
-    end)
-
-    -- Theme Configuration Section
-    local ThemeSection = CreateSection(UISettingsTab, "Themes")
-    
-    -- Background color
-    local ThemeBackgroundColorPicker = CreateColorPicker(ThemeSection, "Background color", Config.UITheme.Background, function(Value)
-        -- This is added to the current theme in use, not stored yet
-        Config.UITheme.Background = Value
-        
-        -- Update UI immediately
-        MainFrame.BackgroundColor3 = Value
-        ContentFrame.BackgroundColor3 = Value
-    end)
-    
-    -- Main color
-    local ThemeMainColorPicker = CreateColorPicker(ThemeSection, "Main color", Config.UITheme.TopBar, function(Value)
-        -- This is added to the current theme in use, not stored yet
-        Config.UITheme.TopBar = Value
-        
-        -- Update UI immediately
-        TopBar.BackgroundColor3 = Value
-        TabsFrame.BackgroundColor3 = Value
-        
-        for _, Tab in pairs(Tabs) do
-            Tab.Button.BackgroundColor3 = Value
-        end
-    end)
-    
-    -- Accent color
-    local ThemeAccentColorPicker = CreateColorPicker(ThemeSection, "Accent color", Config.UITheme.Accent, function(Value)
-        -- This is added to the current theme in use, not stored yet
-        Config.UITheme.Accent = Value
-        
-        -- Update UI immediately
-        for _, TabContent in pairs(ContentFrame:GetChildren()) do
-            if TabContent:IsA("ScrollingFrame") then
-                for _, Section in pairs(TabContent:GetChildren()) do
-                    if Section:IsA("Frame") and Section:FindFirstChild("Title") then
-                        Section.Title.BackgroundColor3 = Value
-                    end
-                end
-            end
-        end
-        
-        -- Update other accent colored elements
-        for _, TabContent in pairs(ContentFrame:GetChildren()) do
-            if TabContent:IsA("ScrollingFrame") then
-                for _, Section in pairs(TabContent:GetChildren()) do
-                    if Section:IsA("Frame") then
-                        for _, Component in pairs(Section:GetDescendants()) do
-                            if Component:IsA("Frame") and Component.Name == "Fill" then
-                                Component.BackgroundColor3 = Value
-                            elseif Component:IsA("TextButton") and Component.Parent.Name:match("Button") then
-                                Component.BackgroundColor3 = Value
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        
-        -- Update FOV Circles
-        FOVCircle.Color = Value
-        SilentAimFOV.Color = Value
-    end)
-    
-    -- Outline color
-    local ThemeOutlineColorPicker = CreateColorPicker(ThemeSection, "Outline color", Config.UITheme.Border, function(Value)
-        -- This is added to the current theme in use, not stored yet
-        Config.UITheme.Border = Value
-        
-        -- Update any UI elements with borders
-        for _, TabContent in pairs(ContentFrame:GetChildren()) do
-            if TabContent:IsA("ScrollingFrame") then
-                for _, Section in pairs(TabContent:GetChildren()) do
-                    if Section:IsA("Frame") then
-                        for _, Component in pairs(Section:GetDescendants()) do
-                            if Component:IsA("Frame") or Component:IsA("TextButton") or Component:IsA("TextBox") then
-                                if Component.BorderSizePixel > 0 then
-                                    Component.BorderColor3 = Value
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
-    
-    -- Font color
-    local ThemeFontColorPicker = CreateColorPicker(ThemeSection, "Font color", Config.UITheme.Text, function(Value)
-        -- This is added to the current theme in use, not stored yet
-        Config.UITheme.Text = Value
-        
-        -- Update UI immediately
-        TitleLabel.TextColor3 = Value
-        
-        -- Update all text colors
-        for _, TabContent in pairs(ContentFrame:GetChildren()) do
-            if TabContent:IsA("ScrollingFrame") then
-                for _, Section in pairs(TabContent:GetChildren()) do
-                    if Section:IsA("Frame") then
-                        for _, Component in pairs(Section:GetDescendants()) do
-                            if Component:IsA("TextLabel") or Component:IsA("TextButton") or Component:IsA("TextBox") then
-                                Component.TextColor3 = Value
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        
-        for _, Tab in pairs(Tabs) do
-            Tab.Button.TextColor3 = Value
-        end
-    end)
-    
-    -- Theme name input
-    local ThemeNameInput = Instance.new("TextBox")
-    ThemeNameInput.Name = "ThemeNameInput"
-    ThemeNameInput.Size = UDim2.new(1, 0, 0, 30)
-    ThemeNameInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    ThemeNameInput.BorderSizePixel = 0
-    ThemeNameInput.Text = Config.ThemeConfig.CustomThemeName
-    ThemeNameInput.TextColor3 = Config.UITheme.Text
-    ThemeNameInput.TextSize = 14
-    ThemeNameInput.Font = Enum.Font.SourceSans
-    ThemeNameInput.PlaceholderText = "Custom theme name"
-    ThemeNameInput.Parent = ThemeSection.Content
-    
-    ThemeNameInput.FocusLost:Connect(function()
-        Config.ThemeConfig.CustomThemeName = ThemeNameInput.Text
-    end)
-    
-    -- Create theme list dropdown
-    local ThemeList = {"Default"}
-    for ThemeName, _ in pairs(Config.ThemeConfig.CustomThemes) do
-        if ThemeName ~= "Default" then
-            table.insert(ThemeList, ThemeName)
-        end
-    end
-    
-    local ThemeDropdown = CreateDropdown(ThemeSection, "Theme list", ThemeList, Config.ThemeConfig.SelectedTheme, function(Value)
-        -- Load the selected theme
-        if Config.ThemeConfig.CustomThemes[Value] then
-            local Theme = Config.ThemeConfig.CustomThemes[Value]
-            
-            -- Apply the theme
-            Config.UITheme.Background = Theme.Background
-            Config.UITheme.TopBar = Theme.TopBar
-            Config.UITheme.Section = Theme.Section
-            Config.UITheme.Text = Theme.Text
-            Config.UITheme.Accent = Theme.Accent
-            Config.UITheme.Border = Theme.Outline
-            
-            -- Update UI
-            MainFrame.BackgroundColor3 = Theme.Background
-            ContentFrame.BackgroundColor3 = Theme.Background
-            
-            TopBar.BackgroundColor3 = Theme.TopBar
-            TabsFrame.BackgroundColor3 = Theme.TopBar
-            
-            for _, Tab in pairs(Tabs) do
-                Tab.Button.BackgroundColor3 = Theme.TopBar
-                Tab.Button.TextColor3 = Theme.Text
-            end
-            
-            TitleLabel.TextColor3 = Theme.Text
-            
-            -- Update sections
-            for _, TabContent in pairs(ContentFrame:GetChildren()) do
-                if TabContent:IsA("ScrollingFrame") then
-                    for _, Section in pairs(TabContent:GetChildren()) do
-                        if Section:IsA("Frame") then
-                            Section.BackgroundColor3 = Theme.Section
-                            
-                            if Section:FindFirstChild("Title") then
-                                Section.Title.BackgroundColor3 = Theme.Accent
-                                Section.Title.TextColor3 = Theme.Text
-                            end
-                            
-                            for _, Component in pairs(Section:GetDescendants()) do
-                                if Component:IsA("TextLabel") or Component:IsA("TextButton") or Component:IsA("TextBox") then
-                                    Component.TextColor3 = Theme.Text
-                                end
-                                
-                                if Component:IsA("Frame") and Component.Name == "Fill" then
-                                    Component.BackgroundColor3 = Theme.Accent
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            
-            -- Update FOV circles
-            FOVCircle.Color = Theme.Accent
-            SilentAimFOV.Color = Theme.Accent
-            
-            -- Update theme pickers to match the loaded theme
-            ThemeBackgroundColorPicker.Set(Theme.Background)
-            ThemeMainColorPicker.Set(Theme.TopBar)
-            ThemeAccentColorPicker.Set(Theme.Accent)
-            ThemeFontColorPicker.Set(Theme.Text)
-            if Theme.Outline then
-                ThemeOutlineColorPicker.Set(Theme.Outline)
-            end
-            
-            Config.ThemeConfig.SelectedTheme = Value
-        end
-    end)
-    
-    -- Save theme button
-    local SaveThemeButton = Instance.new("TextButton")
-    SaveThemeButton.Name = "SaveThemeButton"
-    SaveThemeButton.Size = UDim2.new(0.5, -5, 0, 30)
-    SaveThemeButton.Position = UDim2.new(0, 0, 0, 0)
-    SaveThemeButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    SaveThemeButton.BorderSizePixel = 0
-    SaveThemeButton.Text = "Save theme"
-    SaveThemeButton.TextColor3 = Config.UITheme.Text
-    SaveThemeButton.TextSize = 14
-    SaveThemeButton.Font = Enum.Font.SourceSans
-    SaveThemeButton.Parent = ThemeSection.Content
-    
-    -- Load theme button
-    local LoadThemeButton = Instance.new("TextButton")
-    LoadThemeButton.Name = "LoadThemeButton"
-    LoadThemeButton.Size = UDim2.new(0.5, -5, 0, 30)
-    LoadThemeButton.Position = UDim2.new(0.5, 5, 0, 0)
-    LoadThemeButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    LoadThemeButton.BorderSizePixel = 0
-    LoadThemeButton.Text = "Load theme"
-    LoadThemeButton.TextColor3 = Config.UITheme.Text
-    LoadThemeButton.TextSize = 14
-    LoadThemeButton.Font = Enum.Font.SourceSans
-    LoadThemeButton.Parent = ThemeSection.Content
-    
-    -- Button functionality
-    SaveThemeButton.MouseButton1Click:Connect(function()
-        -- Get theme name
-        local ThemeName = Config.ThemeConfig.CustomThemeName
-        if ThemeName == "" then
-            ThemeName = "Custom Theme"
-        end
-        
-        -- Save current theme
-        Config.ThemeConfig.CustomThemes[ThemeName] = {
-            Background = Config.UITheme.Background,
-            TopBar = Config.UITheme.TopBar,
-            Section = Config.UITheme.Section,
-            Text = Config.UITheme.Text,
-            Accent = Config.UITheme.Accent,
-            Outline = Config.UITheme.Border
-        }
-        
-        -- Update theme list
-        local NewThemeList = {"Default"}
-        for Name, _ in pairs(Config.ThemeConfig.CustomThemes) do
-            if Name ~= "Default" then
-                table.insert(NewThemeList, Name)
-            end
-        end
-        
-        -- Refresh dropdown
-        ThemeDropdown.Refresh(NewThemeList, ThemeName)
-        
-        -- Create notification
-        CreateNotification("Theme Saved", "Your theme has been saved as: " .. ThemeName, 3)
-    end)
-    
-    LoadThemeButton.MouseButton1Click:Connect(function()
-        -- Load selected theme
-        local ThemeName = ThemeDropdown.Value
-        if Config.ThemeConfig.CustomThemes[ThemeName] then
-            local Theme = Config.ThemeConfig.CustomThemes[ThemeName]
-            
-            -- Apply the theme
-            Config.UITheme.Background = Theme.Background
-            Config.UITheme.TopBar = Theme.TopBar
-            Config.UITheme.Section = Theme.Section
-            Config.UITheme.Text = Theme.Text
-            Config.UITheme.Accent = Theme.Accent
-            if Theme.Outline then
-                Config.UITheme.Border = Theme.Outline
-            end
-            
-            -- Update UI (reusing the code from the dropdown callback)
-            MainFrame.BackgroundColor3 = Theme.Background
-            ContentFrame.BackgroundColor3 = Theme.Background
-            
-            TopBar.BackgroundColor3 = Theme.TopBar
-            TabsFrame.BackgroundColor3 = Theme.TopBar
-            
-            for _, Tab in pairs(Tabs) do
-                Tab.Button.BackgroundColor3 = Theme.TopBar
-                Tab.Button.TextColor3 = Theme.Text
-            end
-            
-            TitleLabel.TextColor3 = Theme.Text
-            
-            -- Update sections
-            for _, TabContent in pairs(ContentFrame:GetChildren()) do
-                if TabContent:IsA("ScrollingFrame") then
-                    for _, Section in pairs(TabContent:GetChildren()) do
-                        if Section:IsA("Frame") then
-                            Section.BackgroundColor3 = Theme.Section
-                            
-                            if Section:FindFirstChild("Title") then
-                                Section.Title.BackgroundColor3 = Theme.Accent
-                                Section.Title.TextColor3 = Theme.Text
-                            end
-                            
-                            for _, Component in pairs(Section:GetDescendants()) do
-                                if Component:IsA("TextLabel") or Component:IsA("TextButton") or Component:IsA("TextBox") then
-                                    Component.TextColor3 = Theme.Text
-                                end
-                                
-                                if Component:IsA("Frame") and Component.Name == "Fill" then
-                                    Component.BackgroundColor3 = Theme.Accent
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            
-            -- Update FOV circles
-            FOVCircle.Color = Theme.Accent
-            SilentAimFOV.Color = Theme.Accent
-            
-            -- Update theme pickers
-            ThemeBackgroundColorPicker.Set(Theme.Background)
-            ThemeMainColorPicker.Set(Theme.TopBar)
-            ThemeAccentColorPicker.Set(Theme.Accent)
-            ThemeFontColorPicker.Set(Theme.Text)
-            if Theme.Outline then
-                ThemeOutlineColorPicker.Set(Theme.Outline)
-            end
-            
-            -- Update selected theme
-            Config.ThemeConfig.SelectedTheme = ThemeName
-            
-            -- Create notification
-            CreateNotification("Theme Loaded", "Theme '" .. ThemeName .. "' has been loaded.", 3)
-        end
-    end)
-    
-    -- Configuration Section
-    local ConfigSection = CreateSection(UISettingsTab, "Configuration")
-    
-    -- Config name input
-    local ConfigNameInput = Instance.new("TextBox")
-    ConfigNameInput.Name = "ConfigNameInput" 
-    ConfigNameInput.Size = UDim2.new(1, 0, 0, 30)
-    ConfigNameInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    ConfigNameInput.BorderSizePixel = 0
-    ConfigNameInput.Text = Config.ConfigSystem.ConfigName
-    ConfigNameInput.TextColor3 = Config.UITheme.Text
-    ConfigNameInput.TextSize = 14
-    ConfigNameInput.Font = Enum.Font.SourceSans
-    ConfigNameInput.PlaceholderText = "Config name"
-    ConfigNameInput.Parent = ConfigSection.Content
-    
-    ConfigNameInput.FocusLost:Connect(function()
-        Config.ConfigSystem.ConfigName = ConfigNameInput.Text
-    end)
-    
-    -- Create config list dropdown
-    local ConfigList = {"none"}
-    for ConfigName, _ in pairs(Config.ConfigSystem.Configs) do
-        table.insert(ConfigList, ConfigName)
-    end
-    
-    local ConfigDropdown = CreateDropdown(ConfigSection, "Config list", ConfigList, Config.ConfigSystem.CurrentConfig, function(Value)
-        Config.ConfigSystem.CurrentConfig = Value
-    end)
-    
-    -- Create config button
-    local CreateConfigButton = Instance.new("TextButton")
-    CreateConfigButton.Name = "CreateConfigButton"
-    CreateConfigButton.Size = UDim2.new(0.5, -5, 0, 30)
-    CreateConfigButton.Position = UDim2.new(0, 0, 0, 0)
-    CreateConfigButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    CreateConfigButton.BorderSizePixel = 0
-    CreateConfigButton.Text = "Create config"
-    CreateConfigButton.TextColor3 = Config.UITheme.Text
-    CreateConfigButton.TextSize = 14
-    CreateConfigButton.Font = Enum.Font.SourceSans
-    CreateConfigButton.Parent = ConfigSection.Content
-    
-    -- Load config button
-    local LoadConfigButton = Instance.new("TextButton")
-    LoadConfigButton.Name = "LoadConfigButton"
-    LoadConfigButton.Size = UDim2.new(0.5, -5, 0, 30)
-    LoadConfigButton.Position = UDim2.new(0.5, 5, 0, 0)
-    LoadConfigButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    LoadConfigButton.BorderSizePixel = 0
-    LoadConfigButton.Text = "Load config"
-    LoadConfigButton.TextColor3 = Config.UITheme.Text
-    LoadConfigButton.TextSize = 14
-    LoadConfigButton.Font = Enum.Font.SourceSans
-    LoadConfigButton.Parent = ConfigSection.Content
-    
-    -- Overwrite config button
-    local OverwriteConfigButton = Instance.new("TextButton")
-    OverwriteConfigButton.Name = "OverwriteConfigButton"
-    OverwriteConfigButton.Size = UDim2.new(1, 0, 0, 30)
-    OverwriteConfigButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    OverwriteConfigButton.BorderSizePixel = 0
-    OverwriteConfigButton.Text = "Overwrite config"
-    OverwriteConfigButton.TextColor3 = Config.UITheme.Text
-    OverwriteConfigButton.TextSize = 14
-    OverwriteConfigButton.Font = Enum.Font.SourceSans
-    OverwriteConfigButton.Parent = ConfigSection.Content
-    
-    -- Refresh list button
-    local RefreshConfigListButton = Instance.new("TextButton")
-    RefreshConfigListButton.Name = "RefreshConfigListButton"
-    RefreshConfigListButton.Size = UDim2.new(1, 0, 0, 30)
-    RefreshConfigListButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    RefreshConfigListButton.BorderSizePixel = 0
-    RefreshConfigListButton.Text = "Refresh list"
-    RefreshConfigListButton.TextColor3 = Config.UITheme.Text
-    RefreshConfigListButton.TextSize = 14
-    RefreshConfigListButton.Font = Enum.Font.SourceSans
-    RefreshConfigListButton.Parent = ConfigSection.Content
-    
-    -- Set as autoload button
-    local SetAutoloadButton = Instance.new("TextButton")
-    SetAutoloadButton.Name = "SetAutoloadButton"
-    SetAutoloadButton.Size = UDim2.new(1, 0, 0, 30)
-    SetAutoloadButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    SetAutoloadButton.BorderSizePixel = 0
-    SetAutoloadButton.Text = "Set as autoload"
-    SetAutoloadButton.TextColor3 = Config.UITheme.Text
-    SetAutoloadButton.TextSize = 14
-    SetAutoloadButton.Font = Enum.Font.SourceSans
-    SetAutoloadButton.Parent = ConfigSection.Content
-    
-    -- Autoload config label
-    local AutoloadLabel = Instance.new("TextLabel")
-    AutoloadLabel.Name = "AutoloadLabel"
-    AutoloadLabel.Size = UDim2.new(1, 0, 0, 30)
-    AutoloadLabel.BackgroundTransparency = 1
-    AutoloadLabel.Text = "Current autoload config: " .. Config.ConfigSystem.CurrentAutoloadConfig
-    AutoloadLabel.TextColor3 = Config.UITheme.Text
-    AutoloadLabel.TextSize = 14
-    AutoloadLabel.Font = Enum.Font.SourceSans
-    AutoloadLabel.Parent = ConfigSection.Content
-    
-    -- Button functionality
-    CreateConfigButton.MouseButton1Click:Connect(function()
-        -- Get config name
-        local ConfigName = Config.ConfigSystem.ConfigName
-        if ConfigName == "" then
-            ConfigName = "Config"
-        end
-        
-        -- Save current config
-        Config.ConfigSystem.Configs[ConfigName] = {
-            -- Save all configs
-            Camlock = table.clone(Config.Camlock),
-            Strafe = table.clone(Config.Strafe),
-            Movement = table.clone(Config.Movement),
-            Target = table.clone(Config.Target),
-            KillAura = table.clone(Config.KillAura),
-            HitFeatures = table.clone(Config.HitFeatures),
-            NeckGrabs = table.clone(Config.NeckGrabs),
-            SilentAim = table.clone(Config.SilentAim),
-            Triggerbot = table.clone(Config.Triggerbot),
-            Desync = table.clone(Config.Desync),
-            ESP = table.clone(Config.ESP),
-            Misc = table.clone(Config.Misc),
-            Rage = table.clone(Config.Rage),
-            
-            -- Save theme
-            UITheme = table.clone(Config.UITheme),
-            ThemeConfig = table.clone(Config.ThemeConfig)
-        }
-        
-        -- Update config list
-        local NewConfigList = {"none"}
-        for Name, _ in pairs(Config.ConfigSystem.Configs) do
-            table.insert(NewConfigList, Name)
-        end
-        
-        -- Refresh dropdown
-        ConfigDropdown.Refresh(NewConfigList, ConfigName)
-        Config.ConfigSystem.CurrentConfig = ConfigName
-        
-        -- Create notification
-        CreateNotification("Config Created", "Your configuration has been saved as: " .. ConfigName, 3)
-    end)
-    
-    LoadConfigButton.MouseButton1Click:Connect(function()
-        -- Load selected config
-        local ConfigName = ConfigDropdown.Value
-        if ConfigName ~= "none" and Config.ConfigSystem.Configs[ConfigName] then
-            local SavedConfig = Config.ConfigSystem.Configs[ConfigName]
-            
-            -- Apply config
-            for Category, Settings in pairs(SavedConfig) do
-                -- Skip UITheme and ThemeConfig for now
-                if Category ~= "UITheme" and Category ~= "ThemeConfig" then
-                    Config[Category] = table.clone(Settings)
-                end
-            end
-            
-            -- Load theme from config if it exists
-            if SavedConfig.ThemeConfig and SavedConfig.ThemeConfig.SelectedTheme then
-                local ThemeName = SavedConfig.ThemeConfig.SelectedTheme
-                
-                -- First save any custom themes from the config
-                if SavedConfig.ThemeConfig.CustomThemes then
-                    for Name, ThemeData in pairs(SavedConfig.ThemeConfig.CustomThemes) do
-                        Config.ThemeConfig.CustomThemes[Name] = table.clone(ThemeData)
-                    end
-                end
-                
-                -- Apply the theme
-                if Config.ThemeConfig.CustomThemes[ThemeName] then
-                    local Theme = Config.ThemeConfig.CustomThemes[ThemeName]
-                    
-                    Config.UITheme.Background = Theme.Background
-                    Config.UITheme.TopBar = Theme.TopBar
-                    Config.UITheme.Section = Theme.Section
-                    Config.UITheme.Text = Theme.Text
-                    Config.UITheme.Accent = Theme.Accent
-                    if Theme.Outline then
-                        Config.UITheme.Border = Theme.Outline
-                    end
-                    
-                    Config.ThemeConfig.SelectedTheme = ThemeName
-                    
-                    -- Update theme dropdown
-                    local NewThemeList = {"Default"}
-                    for Name, _ in pairs(Config.ThemeConfig.CustomThemes) do
-                        if Name ~= "Default" then
-                            table.insert(NewThemeList, Name)
-                        end
-                    end
-                    ThemeDropdown.Refresh(NewThemeList, ThemeName)
-                end
-            end
-            
-            -- Create notification
-            CreateNotification("Config Loaded", "Configuration '" .. ConfigName .. "' has been loaded.", 3)
-            
-            -- Force refresh UI
-            GUI.Create()
-        end
-    end)
-    
-    OverwriteConfigButton.MouseButton1Click:Connect(function()
-        -- Get config name
-        local ConfigName = ConfigDropdown.Value
-        if ConfigName ~= "none" and Config.ConfigSystem.Configs[ConfigName] then
-            -- Save current config over the selected one
-            Config.ConfigSystem.Configs[ConfigName] = {
-                -- Save all configs
-                Camlock = table.clone(Config.Camlock),
-                Strafe = table.clone(Config.Strafe),
-                Movement = table.clone(Config.Movement),
-                Target = table.clone(Config.Target),
-                KillAura = table.clone(Config.KillAura),
-                HitFeatures = table.clone(Config.HitFeatures),
-                NeckGrabs = table.clone(Config.NeckGrabs),
-                SilentAim = table.clone(Config.SilentAim),
-                Triggerbot = table.clone(Config.Triggerbot),
-                Desync = table.clone(Config.Desync),
-                ESP = table.clone(Config.ESP),
-                Misc = table.clone(Config.Misc),
-                Rage = table.clone(Config.Rage),
-                
-                -- Save theme
-                UITheme = table.clone(Config.UITheme),
-                ThemeConfig = table.clone(Config.ThemeConfig)
-            }
-            
-            -- Create notification
-            CreateNotification("Config Overwritten", "Configuration '" .. ConfigName .. "' has been updated.", 3)
-        else
-            -- Create notification
-            CreateNotification("Error", "Please select a valid config first.", 3)
-        end
-    end)
-    
-    RefreshConfigListButton.MouseButton1Click:Connect(function()
-        -- Update config list
-        local NewConfigList = {"none"}
-        for Name, _ in pairs(Config.ConfigSystem.Configs) do
-            table.insert(NewConfigList, Name)
-        end
-        
-        -- Refresh dropdown
-        ConfigDropdown.Refresh(NewConfigList, Config.ConfigSystem.CurrentConfig)
-        
-        -- Create notification
-        CreateNotification("List Refreshed", "Configuration list has been refreshed.", 2)
-    end)
-    
-    SetAutoloadButton.MouseButton1Click:Connect(function()
-        -- Set autoload config
-        local ConfigName = ConfigDropdown.Value
-        if ConfigName ~= "none" and Config.ConfigSystem.Configs[ConfigName] then
-            Config.ConfigSystem.CurrentAutoloadConfig = ConfigName
-            AutoloadLabel.Text = "Current autoload config: " .. ConfigName
-            
-            -- Create notification
-            CreateNotification("Autoload Set", "Configuration '" .. ConfigName .. "' will autoload.", 3)
-        else
-            -- Create notification
-            CreateNotification("Error", "Please select a valid config first.", 3)
-        end
-    end)
-    
     -- Set default tab
     Tabs["Main"].Button.MouseButton1Click:Fire()
 end
@@ -2469,9 +1324,30 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Camlock functionality
+-- Camlock functionality (toggle mode)
+local CamlockActive = false -- Toggle state for camlock
+
 UserInputService.InputBegan:Connect(function(Input, GameProcessed)
     if not GameProcessed and Input.KeyCode == Config.Camlock.Key then
+        CamlockActive = not CamlockActive -- Toggle the state
+        
+        if CamlockActive then
+            -- Activate camlock
+            local Target = Utility.GetClosestPlayerToMouse()
+            if Target then
+                Config.Camlock.Target = Target
+            end
+        else
+            -- Deactivate camlock
+            Config.Camlock.Target = nil
+        end
+    end
+end)
+
+-- Add continuous target acquisition when camlock is active
+RunService.Heartbeat:Connect(function()
+    if CamlockActive and (Config.Camlock.Target == nil or not Config.Camlock.Target.Character or not Config.Camlock.Target.Character:FindFirstChild(Config.Camlock.TargetPart)) then
+        -- Try to find a new target if current one is invalid
         local Target = Utility.GetClosestPlayerToMouse()
         if Target then
             Config.Camlock.Target = Target
@@ -2479,15 +1355,10 @@ UserInputService.InputBegan:Connect(function(Input, GameProcessed)
     end
 end)
 
-UserInputService.InputEnded:Connect(function(Input, GameProcessed)
-    if not GameProcessed and Input.KeyCode == Config.Camlock.Key then
-        Config.Camlock.Target = nil
-    end
-end)
-
 -- Camlock update function
 RunService.RenderStepped:Connect(function()
-    if Config.Camlock.Enabled and Config.Camlock.Target and Config.Camlock.Target.Character and Config.Camlock.Target.Character:FindFirstChild(Config.Camlock.TargetPart) and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+    -- Only apply camlock when both feature is enabled in settings AND toggle is active
+    if Config.Camlock.Enabled and CamlockActive and Config.Camlock.Target and Config.Camlock.Target.Character and Config.Camlock.Target.Character:FindFirstChild(Config.Camlock.TargetPart) and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local TargetPart = Config.Camlock.Target.Character:FindFirstChild(Config.Camlock.TargetPart)
         local TargetPosition = TargetPart.Position
         local TargetVelocity = TargetPart.Velocity
@@ -2600,51 +1471,49 @@ local function UpdateESP()
             ESP.Health.Visible = false
             ESP.Tracer.Visible = false
         else
-        
-        local Character = Player.Character
-        local HRP = Character.HumanoidRootPart
-        local Humanoid = Character.Humanoid
-        
-        local Vector, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
-        
-        if not OnScreen then
-            ESP.Box.Visible = false
-            ESP.Name.Visible = false
-            ESP.Health.Visible = false
-            ESP.Tracer.Visible = false
-        else
-        
-        local Size = (Camera:WorldToViewportPoint(HRP.Position + Vector3.new(0, 3, 0)).Y - Camera:WorldToViewportPoint(HRP.Position - Vector3.new(0, 3, 0)).Y) / 2
-        local BoxSize = Vector2.new(Size * 1.5, Size * 3)
-        local BoxPosition = Vector2.new(Vector.X - Size * 1.5 / 2, Vector.Y - Size * 3 / 2)
-        
-        -- Update box
-        ESP.Box.Size = BoxSize
-        ESP.Box.Position = BoxPosition
-        ESP.Box.Visible = Config.ESP.BoxESP
-        ESP.Box.Color = Config.ESP.BoxColor
-        
-        -- Update name
-        ESP.Name.Text = Player.Name
-        ESP.Name.Position = Vector2.new(Vector.X, Vector.Y - Size * 3 / 2 - 15)
-        ESP.Name.Visible = Config.ESP.NameESP
-        ESP.Name.Color = Config.ESP.NameColor
-        
-        -- Update health
-        local Health = Humanoid.Health
-        local MaxHealth = Humanoid.MaxHealth
-        local HealthPercent = (Health / MaxHealth)
-        
-        ESP.Health.From = Vector2.new(BoxPosition.X - 5, BoxPosition.Y)
-        ESP.Health.To = Vector2.new(BoxPosition.X - 5, BoxPosition.Y + (BoxSize.Y * HealthPercent))
-        ESP.Health.Color = Color3.fromRGB(255 - 255 * HealthPercent, 255 * HealthPercent, 0)
-        ESP.Health.Visible = Config.ESP.HealthESP
-        
-        -- Update tracer
-        ESP.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-        ESP.Tracer.To = Vector2.new(Vector.X, Vector.Y)
-        ESP.Tracer.Visible = Config.ESP.TracerESP
-        ESP.Tracer.Color = Config.ESP.TracerColor
+            local Character = Player.Character
+            local HRP = Character.HumanoidRootPart
+            local Humanoid = Character.Humanoid
+            
+            local Vector, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
+            
+            if not OnScreen then
+                ESP.Box.Visible = false
+                ESP.Name.Visible = false
+                ESP.Health.Visible = false
+                ESP.Tracer.Visible = false
+            else        
+                local Size = (Camera:WorldToViewportPoint(HRP.Position + Vector3.new(0, 3, 0)).Y - Camera:WorldToViewportPoint(HRP.Position - Vector3.new(0, 3, 0)).Y) / 2
+                local BoxSize = Vector2.new(Size * 1.5, Size * 3)
+                local BoxPosition = Vector2.new(Vector.X - Size * 1.5 / 2, Vector.Y - Size * 3 / 2)
+                
+                -- Update box
+                ESP.Box.Size = BoxSize
+                ESP.Box.Position = BoxPosition
+                ESP.Box.Visible = Config.ESP.BoxESP
+                ESP.Box.Color = Config.ESP.BoxColor
+                
+                -- Update name
+                ESP.Name.Text = Player.Name
+                ESP.Name.Position = Vector2.new(Vector.X, Vector.Y - Size * 3 / 2 - 15)
+                ESP.Name.Visible = Config.ESP.NameESP
+                ESP.Name.Color = Config.ESP.NameColor
+                
+                -- Update health
+                local Health = Humanoid.Health
+                local MaxHealth = Humanoid.MaxHealth
+                local HealthPercent = (Health / MaxHealth)
+                
+                ESP.Health.From = Vector2.new(BoxPosition.X - 5, BoxPosition.Y)
+                ESP.Health.To = Vector2.new(BoxPosition.X - 5, BoxPosition.Y + (BoxSize.Y * HealthPercent))
+                ESP.Health.Color = Color3.fromRGB(255 - 255 * HealthPercent, 255 * HealthPercent, 0)
+                ESP.Health.Visible = Config.ESP.HealthESP
+                
+                -- Update tracer
+                ESP.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                ESP.Tracer.To = Vector2.new(Vector.X, Vector.Y)
+                ESP.Tracer.Visible = Config.ESP.TracerESP
+                ESP.Tracer.Color = Config.ESP.TracerColor
             end
         end
     end
@@ -2794,940 +1663,6 @@ local function DisableSpeed()
     end
 end
 
--- Triggerbot functionality (auto shoots when mouse is over a player)
-local TriggerbotConnection = nil
-
-local function EnableTriggerbot()
-    if TriggerbotConnection then
-        TriggerbotConnection:Disconnect()
-    end
-    
-    TriggerbotConnection = RunService.RenderStepped:Connect(function()
-        if Config.Triggerbot.Enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            -- Check if mouse is over a player
-            local Target = Mouse.Target
-            if Target and Target.Parent and Target.Parent:FindFirstChild("Humanoid") and Players:GetPlayerFromCharacter(Target.Parent) and Players:GetPlayerFromCharacter(Target.Parent) ~= LocalPlayer then
-                -- Apply delay before shooting
-                if Config.Triggerbot.Delay > 0 then
-                    task.wait(Config.Triggerbot.Delay)
-                end
-                
-                -- Auto shoot
-                mouse1press()
-                task.wait(0.05)
-                mouse1release()
-            end
-        end
-    end)
-end
-
-local function DisableTriggerbot()
-    if TriggerbotConnection then
-        TriggerbotConnection:Disconnect()
-        TriggerbotConnection = nil
-    end
-end
-
--- Anti Stomp functionality (prevents dying when knocked)
-local AntiStompConnection = nil
-
-local function EnableAntiStomp()
-    if AntiStompConnection then
-        AntiStompConnection:Disconnect()
-    end
-    
-    AntiStompConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.AntiStomp and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            local Humanoid = LocalPlayer.Character.Humanoid
-            
-            if Utility.IsPlayerKnocked(LocalPlayer) then
-                -- Reset character immediately when knocked
-                LocalPlayer.Character:BreakJoints()
-            end
-        end
-    end)
-end
-
-local function DisableAntiStomp()
-    if AntiStompConnection then
-        AntiStompConnection:Disconnect()
-        AntiStompConnection = nil
-    end
-end
-
--- Silent Aim functionality (shoots at target regardless of where you aim)
-local SilentAimConnection = nil
-local OriginalNamecall = nil
-local OriginalIndex = nil
-local PlayerHighlights = {}
-
--- Function to add red highlight to a player
-local function AddHighlightToPlayer(Player)
-    if not Player or not Player.Character then return end
-    
-    -- Remove existing highlight if there is one
-    if PlayerHighlights[Player] then
-        PlayerHighlights[Player]:Destroy()
-        PlayerHighlights[Player] = nil
-    end
-    
-    -- Create new highlight
-    local Highlight = Instance.new("Highlight")
-    Highlight.Name = "SilentAimHighlight"
-    Highlight.FillColor = Color3.new(1, 0, 0) -- Red color
-    Highlight.OutlineColor = Color3.new(1, 0, 0)
-    Highlight.FillTransparency = 0.5 -- Semi-transparent
-    Highlight.OutlineTransparency = 0.3
-    Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    Highlight.Parent = Player.Character
-    
-    PlayerHighlights[Player] = Highlight
-end
-
--- Function to remove highlight from a player
-local function RemoveHighlightFromPlayer(Player)
-    if not Player then return end
-    
-    if PlayerHighlights[Player] then
-        PlayerHighlights[Player]:Destroy()
-        PlayerHighlights[Player] = nil
-    end
-end
-
--- Function to remove all highlights
-local function RemoveAllHighlights()
-    for Player, Highlight in pairs(PlayerHighlights) do
-        if Highlight and Highlight.Parent then
-            Highlight:Destroy()
-        end
-    end
-    
-    PlayerHighlights = {}
-end
-
-local function EnableSilentAim()
-    if SilentAimConnection then return end
-    
-    -- Handle key toggle functionality
-    SilentAimConnection = UserInputService.InputBegan:Connect(function(Input, GameProcessed)
-        if GameProcessed then return end
-        
-        if Input.KeyCode == Config.SilentAim.Key and Config.SilentAim.KeyToggle then
-            Config.SilentAim.Enabled = not Config.SilentAim.Enabled
-            
-            -- Notification feedback
-            if Config.SilentAim.Enabled then
-                CreateNotification("Silent Aim", "Silent Aim has been enabled", 2)
-            else
-                CreateNotification("Silent Aim", "Silent Aim has been disabled", 2)
-                RemoveAllHighlights()
-            end
-        end
-    end)
-    
-    -- Set up the silent aim namecall hook
-    if not OriginalNamecall then
-        OriginalNamecall = hookmetamethod(game, "__namecall", function(Self, ...)
-            local Args = {...}
-            local Method = getnamecallmethod()
-            
-            if Config.SilentAim.Enabled and Method == "FireServer" and Self and Self.Name == "ShootGun" then
-                local Target = Utility.GetSilentAimTarget()
-                
-                if Target then
-                    -- Highlight the target
-                    AddHighlightToPlayer(Target)
-                    
-                    -- Replace the shot position with the target's head position
-                    if Args[1] and typeof(Args[1]) == "Vector3" then
-                        Args[1] = Target.Character[Config.SilentAim.TargetPart].Position
-                    end
-                    
-                    return OriginalNamecall(Self, unpack(Args))
-                else
-                    RemoveAllHighlights()
-                end
-            end
-            
-            return OriginalNamecall(Self, ...)
-        end)
-    end
-end
-
-local function DisableSilentAim()
-    if SilentAimConnection then
-        SilentAimConnection:Disconnect()
-        SilentAimConnection = nil
-    end
-    
-    RemoveAllHighlights()
-end
-
--- No Recoil functionality (prevents gun recoil)
-local NoRecoilConnection = nil
-
-local function EnableNoRecoil()
-    if NoRecoilConnection then
-        NoRecoilConnection:Disconnect()
-    end
-    
-    NoRecoilConnection = RunService.Heartbeat:Connect(function()
-        if Config.Rage.NoRecoil and LocalPlayer.Character then
-            -- Find equipped gun
-            local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if Tool then
-                -- Check if it's a gun by looking for scripts
-                if Tool:FindFirstChild("GunScript") then
-                    -- Remove or zero out recoil properties
-                    for _, v in pairs(Tool:GetDescendants()) do
-                        if v:IsA("ModuleScript") and v.Name == "GunSettings" then
-                            -- Try to load the module if possible
-                            local success, gunSettings = pcall(function() 
-                                return require(v) 
-                            end)
-                            
-                            if success and typeof(gunSettings) == "table" then
-                                -- Look for recoil properties and set them to zero
-                                if gunSettings.Recoil then gunSettings.Recoil = 0 end
-                                if gunSettings.RecoilMult then gunSettings.RecoilMult = 0 end
-                                if gunSettings.Spread then gunSettings.Spread = 0 end
-                                if gunSettings.MaxSpread then gunSettings.MaxSpread = 0 end
-                                if gunSettings.CameraShake then gunSettings.CameraShake = 0 end
-                            end
-                        end
-                    end
-                    
-                    -- If there's any camera shake scripts, disable them
-                    for _, v in pairs(Tool:GetDescendants()) do
-                        if v:IsA("Script") and (v.Name:find("Recoil") or v.Name:find("CameraShake")) then
-                            v.Disabled = true
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-local function DisableNoRecoil()
-    if NoRecoilConnection then
-        NoRecoilConnection:Disconnect()
-        NoRecoilConnection = nil
-    end
-end
-
--- Fast Reload functionality
-local FastReloadConnection = nil
-
-local function EnableFastReload()
-    if FastReloadConnection then
-        FastReloadConnection:Disconnect()
-    end
-    
-    FastReloadConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.FastReload and LocalPlayer.Character then
-            -- Find equipped gun
-            local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if Tool then
-                -- Check if it's a gun
-                if Tool:FindFirstChild("GunScript") then
-                    -- Modify gun scripts to speed up reload time
-                    for _, v in pairs(Tool:GetDescendants()) do
-                        if v:IsA("ModuleScript") and v.Name == "GunSettings" then
-                            -- Try to load the module if possible
-                            local success, gunSettings = pcall(function() 
-                                return require(v) 
-                            end)
-                            
-                            if success and typeof(gunSettings) == "table" then
-                                -- Reduce reload time
-                                if gunSettings.ReloadTime then gunSettings.ReloadTime = 0.1 end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-local function DisableFastReload()
-    if FastReloadConnection then
-        FastReloadConnection:Disconnect()
-        FastReloadConnection = nil
-    end
-end
-
--- Auto Reload functionality
-local AutoReloadConnection = nil
-
-local function EnableAutoReload()
-    if AutoReloadConnection then
-        AutoReloadConnection:Disconnect()
-    end
-    
-    AutoReloadConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.AutoReload and LocalPlayer.Character then
-            -- Find equipped gun
-            local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if Tool then
-                -- Check if it's a gun
-                if Tool:FindFirstChild("GunScript") then
-                    -- Get ammo count
-                    local AmmoDisplay = LocalPlayer.PlayerGui:FindFirstChild("AmmoDisplay")
-                    if AmmoDisplay and AmmoDisplay:FindFirstChild("AmmoCount") then
-                        local AmmoCount = AmmoDisplay.AmmoCount.Text
-                        if AmmoCount == "0" then
-                            -- Press R to reload
-                            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.R, false, game)
-                            task.wait(0.1)
-                            game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.R, false, game)
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-local function DisableAutoReload()
-    if AutoReloadConnection then
-        AutoReloadConnection:Disconnect()
-        AutoReloadConnection = nil
-    end
-end
-
--- Silent Reload functionality
-local SilentReloadConnection = nil
-
-local function EnableSilentReload()
-    if SilentReloadConnection then
-        SilentReloadConnection:Disconnect()
-    end
-    
-    SilentReloadConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.SilentReload and LocalPlayer.Character then
-            -- Find reloading sounds and disable them
-            for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
-                if v:IsA("Sound") and (v.Name:find("Reload") or v.Name:find("reload")) then
-                    v.Volume = 0
-                end
-            end
-            
-            -- Also check equipped tool for sounds
-            local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if Tool then
-                for _, v in pairs(Tool:GetDescendants()) do
-                    if v:IsA("Sound") and (v.Name:find("Reload") or v.Name:find("reload")) then
-                        v.Volume = 0
-                    end
-                end
-            end
-        end
-    end)
-end
-
-local function DisableSilentReload()
-    if SilentReloadConnection then
-        SilentReloadConnection:Disconnect()
-        SilentReloadConnection = nil
-    end
-    
-    -- Restore sound volumes
-    for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
-        if v:IsA("Sound") and (v.Name:find("Reload") or v.Name:find("reload")) then
-            v.Volume = v.Volume == 0 and 1 or v.Volume
-        end
-    end
-    
-    local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-    if Tool then
-        for _, v in pairs(Tool:GetDescendants()) do
-            if v:IsA("Sound") and (v.Name:find("Reload") or v.Name:find("reload")) then
-                v.Volume = v.Volume == 0 and 1 or v.Volume
-            end
-        end
-    end
-end
-
--- Anti Void functionality
-local AntiVoidConnection = nil
-local LastPosition = Vector3.new(0, 0, 0)
-
-local function EnableAntiVoid()
-    if AntiVoidConnection then
-        AntiVoidConnection:Disconnect()
-    end
-    
-    AntiVoidConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.AntiVoid and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local HRP = LocalPlayer.Character.HumanoidRootPart
-            
-            -- Store the current position if it's valid (not in void)
-            if HRP.Position.Y > -10 then
-                LastPosition = HRP.Position
-            end
-            
-            -- If player falls into void, teleport back to last position
-            if HRP.Position.Y < -100 then
-                HRP.CFrame = CFrame.new(LastPosition)
-            end
-        end
-    end)
-end
-
-local function DisableAntiVoid()
-    if AntiVoidConnection then
-        AntiVoidConnection:Disconnect()
-        AntiVoidConnection = nil
-    end
-end
-
--- Anti RPG functionality
-local AntiRPGConnection = nil
-
-local function EnableAntiRPG()
-    if AntiRPGConnection then
-        AntiRPGConnection:Disconnect()
-    end
-    
-    AntiRPGConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.AntiRPG and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            -- Check if the player is stunned by RPG
-            local Humanoid = LocalPlayer.Character.Humanoid
-            
-            if Humanoid:GetState() == Enum.HumanoidStateType.Physics then
-                -- Check if there are any explosions nearby
-                for _, v in pairs(workspace:GetChildren()) do
-                    if v:IsA("Part") and (v.Name:find("RPG") or v.Name:find("Explosion")) then
-                        local Distance = (LocalPlayer.Character.HumanoidRootPart.Position - v.Position).Magnitude
-                        if Distance < 20 then
-                            -- Change state to remove stun
-                            Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-local function DisableAntiRPG()
-    if AntiRPGConnection then
-        AntiRPGConnection:Disconnect()
-        AntiRPGConnection = nil
-    end
-end
-
--- Chat Spy functionality
-local ChatSpyConnection = nil
-local ChatMessages = {}
-
-local function EnableChatSpy()
-    if ChatSpyConnection then
-        ChatSpyConnection:Disconnect()
-    end
-    
-    -- Create chat frame if it doesn't exist
-    if not CoreGui:FindFirstChild("ChatSpyFrame") then
-        local ChatSpyFrame = Instance.new("Frame")
-        ChatSpyFrame.Name = "ChatSpyFrame"
-        ChatSpyFrame.Size = UDim2.new(0, 300, 0, 200)
-        ChatSpyFrame.Position = UDim2.new(0, 10, 0, 10)
-        ChatSpyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        ChatSpyFrame.BorderSizePixel = 0
-        ChatSpyFrame.Visible = false
-        ChatSpyFrame.Parent = CoreGui
-        
-        -- Add title
-        local Title = Instance.new("TextLabel")
-        Title.Name = "Title"
-        Title.Size = UDim2.new(1, 0, 0, 30)
-        Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        Title.BorderSizePixel = 0
-        Title.Text = "Chat Spy"
-        Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Title.TextSize = 14
-        Title.Font = Enum.Font.SourceSansBold
-        Title.Parent = ChatSpyFrame
-        
-        -- Add message frame
-        local MessageFrame = Instance.new("ScrollingFrame")
-        MessageFrame.Name = "MessageFrame"
-        MessageFrame.Size = UDim2.new(1, 0, 1, -30)
-        MessageFrame.Position = UDim2.new(0, 0, 0, 30)
-        MessageFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        MessageFrame.BorderSizePixel = 0
-        MessageFrame.ScrollBarThickness = 4
-        MessageFrame.Parent = ChatSpyFrame
-        
-        -- Add message layout
-        local MessageLayout = Instance.new("UIListLayout")
-        MessageLayout.FillDirection = Enum.FillDirection.Vertical
-        MessageLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        MessageLayout.Padding = UDim.new(0, 2)
-        MessageLayout.Parent = MessageFrame
-        
-        -- Update canvas size when messages are added
-        MessageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            MessageFrame.CanvasSize = UDim2.new(0, 0, 0, MessageLayout.AbsoluteContentSize.Y)
-        end)
-    end
-    
-    ChatSpyConnection = game:GetService("Players").PlayerAdded:Connect(function(Player)
-        Player.Chatted:Connect(function(Message)
-            if Config.Misc.ChatSpy then
-                -- Add message to frame
-                local ChatSpyFrame = CoreGui:FindFirstChild("ChatSpyFrame")
-                if ChatSpyFrame and ChatSpyFrame:FindFirstChild("MessageFrame") then
-                    -- Create message label
-                    local MessageLabel = Instance.new("TextLabel")
-                    MessageLabel.Size = UDim2.new(1, 0, 0, 20)
-                    MessageLabel.BackgroundTransparency = 1
-                    MessageLabel.Text = Player.Name .. ": " .. Message
-                    MessageLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                    MessageLabel.TextSize = 14
-                    MessageLabel.Font = Enum.Font.SourceSans
-                    MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
-                    MessageLabel.TextWrapped = true
-                    MessageLabel.Parent = ChatSpyFrame.MessageFrame
-                    
-                    -- Store message in table
-                    table.insert(ChatMessages, {Player = Player.Name, Message = Message})
-                    
-                    -- Limit to 100 messages
-                    if #ChatMessages > 100 then
-                        table.remove(ChatMessages, 1)
-                    end
-                    
-                    -- Show frame
-                    ChatSpyFrame.Visible = true
-                end
-            end
-        end)
-    end)
-    
-    -- Hook existing players
-    for _, Player in pairs(game:GetService("Players"):GetPlayers()) do
-        if Player ~= LocalPlayer then
-            Player.Chatted:Connect(function(Message)
-                if Config.Misc.ChatSpy then
-                    -- Add message to frame
-                    local ChatSpyFrame = CoreGui:FindFirstChild("ChatSpyFrame")
-                    if ChatSpyFrame and ChatSpyFrame:FindFirstChild("MessageFrame") then
-                        -- Create message label
-                        local MessageLabel = Instance.new("TextLabel")
-                        MessageLabel.Size = UDim2.new(1, 0, 0, 20)
-                        MessageLabel.BackgroundTransparency = 1
-                        MessageLabel.Text = Player.Name .. ": " .. Message
-                        MessageLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                        MessageLabel.TextSize = 14
-                        MessageLabel.Font = Enum.Font.SourceSans
-                        MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
-                        MessageLabel.TextWrapped = true
-                        MessageLabel.Parent = ChatSpyFrame.MessageFrame
-                        
-                        -- Store message in table
-                        table.insert(ChatMessages, {Player = Player.Name, Message = Message})
-                        
-                        -- Limit to 100 messages
-                        if #ChatMessages > 100 then
-                            table.remove(ChatMessages, 1)
-                        end
-                        
-                        -- Show frame
-                        ChatSpyFrame.Visible = true
-                    end
-                end
-            end)
-        end
-    end
-end
-
-local function DisableChatSpy()
-    if ChatSpyConnection then
-        ChatSpyConnection:Disconnect()
-        ChatSpyConnection = nil
-    end
-    
-    -- Hide chat frame
-    local ChatSpyFrame = CoreGui:FindFirstChild("ChatSpyFrame")
-    if ChatSpyFrame then
-        ChatSpyFrame.Visible = false
-    end
-end
-
--- Anti Grab functionality
-local AntiGrabConnection = nil
-
-local function EnableAntiGrab()
-    if AntiGrabConnection then
-        AntiGrabConnection:Disconnect()
-    end
-    
-    AntiGrabConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.AntiGrab and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            -- Check if player is being carried
-            if LocalPlayer.Character:FindFirstChild("GRABBING_CONSTRAINT") then
-                -- Break constraint
-                LocalPlayer.Character.GRABBING_CONSTRAINT:Destroy()
-            end
-            
-            -- Also check for any other constraints
-            for _, v in pairs(LocalPlayer.Character:GetChildren()) do
-                if v:IsA("Weld") and v.Name:find("GRAB") then
-                    v:Destroy()
-                end
-            end
-        end
-    end)
-end
-
-local function DisableAntiGrab()
-    if AntiGrabConnection then
-        AntiGrabConnection:Disconnect()
-        AntiGrabConnection = nil
-    end
-end
-
--- Anti Sit functionality
-local AntiSitConnection = nil
-
-local function EnableAntiSit()
-    if AntiSitConnection then
-        AntiSitConnection:Disconnect()
-    end
-    
-    AntiSitConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.AntiSit and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            -- Prevent sitting
-            LocalPlayer.Character.Humanoid.Sit = false
-        end
-    end)
-end
-
-local function DisableAntiSit()
-    if AntiSitConnection then
-        AntiSitConnection:Disconnect()
-        AntiSitConnection = nil
-    end
-end
-
--- Wall Bang functionality
-local WallBangConnection = nil
-
-local function EnableWallBang()
-    if WallBangConnection then
-        WallBangConnection:Disconnect()
-    end
-    
-    WallBangConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.WallBang and LocalPlayer.Character then
-            -- Find equipped gun
-            local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if Tool then
-                -- Check if it's a gun
-                if Tool:FindFirstChild("GunScript") then
-                    -- Modify the gun to enable wall penetration
-                    for _, v in pairs(Tool:GetDescendants()) do
-                        if v:IsA("ModuleScript") and v.Name == "GunSettings" then
-                            -- Try to load the module if possible
-                            local success, gunSettings = pcall(function() 
-                                return require(v) 
-                            end)
-                            
-                            if success and typeof(gunSettings) == "table" then
-                                -- Enable wall penetration
-                                if gunSettings.CanPenetrateWalls ~= nil then 
-                                    gunSettings.CanPenetrateWalls = true 
-                                end
-                                
-                                if gunSettings.WallPenetration ~= nil then 
-                                    gunSettings.WallPenetration = true 
-                                end
-                            end
-                        end
-                    end
-                    
-                    -- Also modify any raycast functions
-                    for _, v in pairs(Tool:GetDescendants()) do
-                        if v:IsA("Script") and v.Name:find("Gun") then
-                            -- Try to hook the script's functions
-                            -- (This part would need to be greatly expanded in a real implementation)
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-local function DisableWallBang()
-    if WallBangConnection then
-        WallBangConnection:Disconnect()
-        WallBangConnection = nil
-    end
-end
-
--- No Clip functionality
-local NoClipConnection = nil
-
-local function EnableNoClip()
-    if NoClipConnection then
-        NoClipConnection:Disconnect()
-    end
-    
-    NoClipConnection = RunService.Stepped:Connect(function()
-        if Config.Misc.NoClip and LocalPlayer.Character then
-            for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
-            end
-        end
-    end)
-end
-
-local function DisableNoClip()
-    if NoClipConnection then
-        NoClipConnection:Disconnect()
-        NoClipConnection = nil
-    end
-    
-    -- Reset collision
-    if LocalPlayer.Character then
-        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                part.CanCollide = true
-            end
-        end
-    end
-end
-
--- Rapid Fire functionality (reduces delay between shots)
-local RapidFireConnection = nil
-local HyperRapidFireConnection = nil
-
-local function EnableRapidFire()
-    if RapidFireConnection then
-        RapidFireConnection:Disconnect()
-    end
-    
-    RapidFireConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.RapidFire and LocalPlayer.Character then
-            -- Find equipped gun
-            local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if Tool then
-                -- Check if it's a gun by looking for scripts
-                if Tool:FindFirstChild("GunScript") then
-                    -- Modify gun scripts to remove firing delay
-                    for _, v in pairs(Tool:GetDescendants()) do
-                        if v:IsA("ModuleScript") and v.Name == "GunSettings" then
-                            -- Try to load the module if possible
-                            local success, gunSettings = pcall(function() 
-                                return require(v) 
-                            end)
-                            
-                            if success and typeof(gunSettings) == "table" then
-                                -- Reduce firing delay
-                                if gunSettings.FireDelay then gunSettings.FireDelay = 0.1 end
-                                if gunSettings.FireRate then gunSettings.FireRate = 0.1 end
-                                if gunSettings.ShootCooldown then gunSettings.ShootCooldown = 0.1 end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-local function DisableRapidFire()
-    if RapidFireConnection then
-        RapidFireConnection:Disconnect()
-        RapidFireConnection = nil
-    end
-end
-
-local function EnableHyperRapidFire()
-    if HyperRapidFireConnection then
-        HyperRapidFireConnection:Disconnect()
-    end
-    
-    HyperRapidFireConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.HyperRapidFire and LocalPlayer.Character then
-            -- Find equipped gun
-            local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if Tool then
-                -- Check if it's a gun by looking for scripts
-                if Tool:FindFirstChild("GunScript") then
-                    -- Modify gun scripts to completely remove firing delay
-                    for _, v in pairs(Tool:GetDescendants()) do
-                        if v:IsA("ModuleScript") and v.Name == "GunSettings" then
-                            -- Try to load the module if possible
-                            local success, gunSettings = pcall(function() 
-                                return require(v) 
-                            end)
-                            
-                            if success and typeof(gunSettings) == "table" then
-                                -- Complete removal of firing delay
-                                if gunSettings.FireDelay then gunSettings.FireDelay = 0 end
-                                if gunSettings.FireRate then gunSettings.FireRate = 0 end
-                                if gunSettings.ShootCooldown then gunSettings.ShootCooldown = 0 end
-                                
-                                -- Also modify other settings that might limit firing speed
-                                if gunSettings.ReloadTime then gunSettings.ReloadTime = 0 end
-                                if gunSettings.EquipTime then gunSettings.EquipTime = 0 end
-                                if gunSettings.BoltTime then gunSettings.BoltTime = 0 end
-                            end
-                        end
-                    end
-                    
-                    -- Disable any scripts that might control fire rate
-                    for _, v in pairs(Tool:GetDescendants()) do
-                        if v:IsA("Script") and (v.Name:find("Cooldown") or v.Name:find("Delay") or v.Name:find("Fire")) then
-                            v.Disabled = true
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-local function DisableHyperRapidFire()
-    if HyperRapidFireConnection then
-        HyperRapidFireConnection:Disconnect()
-        HyperRapidFireConnection = nil
-    end
-end
-
--- Hitbox Expander functionality (enlarges player hitboxes)
-local HitboxConnection = nil
-
-local function EnableHitboxExpander()
-    if HitboxConnection then
-        HitboxConnection:Disconnect()
-    end
-    
-    HitboxConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.HitboxExpander and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            for _, Player in pairs(Players:GetPlayers()) do
-                if Player ~= LocalPlayer and Player.Character then
-                    -- Find character parts to expand
-                    for _, Part in pairs(Player.Character:GetChildren()) do
-                        if Part:IsA("BasePart") and Part.Name ~= "HumanoidRootPart" then
-                            -- Expand the hitbox
-                            if Part.Name == "Head" then
-                                -- Make head slightly smaller than other parts for balance
-                                Part.Size = Vector3.new(Config.Misc.HitboxSize * 0.8, Config.Misc.HitboxSize * 0.8, Config.Misc.HitboxSize * 0.8)
-                                Part.Transparency = 0.6
-                            else
-                                Part.Size = Vector3.new(Config.Misc.HitboxSize, Config.Misc.HitboxSize, Config.Misc.HitboxSize)
-                                Part.Transparency = 0.7
-                            end
-                            
-                            -- Make sure parts can be hit
-                            Part.CanCollide = false
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-local function DisableHitboxExpander()
-    if HitboxConnection then
-        HitboxConnection:Disconnect()
-        HitboxConnection = nil
-    end
-    
-    -- Reset hitboxes to normal
-    for _, Player in pairs(Players:GetPlayers()) do
-        if Player ~= LocalPlayer and Player.Character then
-            for _, Part in pairs(Player.Character:GetChildren()) do
-                if Part:IsA("BasePart") and Part.Name ~= "HumanoidRootPart" then
-                    -- Let the game handle the reset naturally
-                    -- as attempting to set specific sizes could cause issues
-                    Part.Transparency = 0
-                end
-            end
-        end
-    end
-end
-
--- Kill Aura functionality (automatically kills players around)
-local KillAuraConnection = nil
-
-local function EnableKillAura()
-    if KillAuraConnection then
-        KillAuraConnection:Disconnect()
-    end
-    
-    KillAuraConnection = RunService.Heartbeat:Connect(function()
-        if Config.KillAura.Enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            -- Check if player has a gun equipped
-            local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if Tool and Tool:FindFirstChild("GunScript") then
-                -- Find players in range
-                for _, Player in pairs(Players:GetPlayers()) do
-                    if Player ~= LocalPlayer and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") and Player.Character:FindFirstChild("Humanoid") then
-                        -- Check if player is knocked and we should ignore knocked players
-                        local IsKnocked = Utility.IsPlayerKnocked(Player)
-                        if not (Config.KillAura.IgnoreKnocked and IsKnocked) then
-                            local Distance = (LocalPlayer.Character.HumanoidRootPart.Position - Player.Character.HumanoidRootPart.Position).Magnitude
-                            
-                            if Distance <= Config.KillAura.Range then
-                                -- Auto shoot at player
-                                Tool.GunScript.ShootGun:FireServer(Player.Character.Head.Position)
-                                task.wait(0.1) -- Prevent too rapid firing
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-local function DisableKillAura()
-    if KillAuraConnection then
-        KillAuraConnection:Disconnect()
-        KillAuraConnection = nil
-    end
-end
-
--- Auto Stomp functionality (automatically stomps knocked players)
-local AutoStompConnection = nil
-
-local function EnableAutoStomp()
-    if AutoStompConnection then
-        AutoStompConnection:Disconnect()
-    end
-    
-    AutoStompConnection = RunService.Heartbeat:Connect(function()
-        if Config.Misc.AutoStomp and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            -- Find knocked players in range
-            local KnockedPlayers = Utility.GetKnockedPlayersAround(10)
-            
-            if #KnockedPlayers > 0 then
-                -- Press E to stomp (Da Hood specific)
-                game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                task.wait(0.1)
-                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
-            end
-        end
-    end)
-end
-
-local function DisableAutoStomp()
-    if AutoStompConnection then
-        AutoStompConnection:Disconnect()
-        AutoStompConnection = nil
-    end
-end
-
 -- Create the GUI
 GUI.Create()
 
@@ -3745,137 +1680,6 @@ RunService.RenderStepped:Connect(function()
         EnableSpeed()
     elseif not Config.Movement.SpeedEnabled and SpeedConnection then
         DisableSpeed()
-    end
-    
-    -- Update Anti Stomp
-    if Config.Misc.AntiStomp and not AntiStompConnection then
-        EnableAntiStomp()
-    elseif not Config.Misc.AntiStomp and AntiStompConnection then
-        DisableAntiStomp()
-    end
-    
-    -- Update Auto Stomp
-    if Config.Misc.AutoStomp and not AutoStompConnection then
-        EnableAutoStomp()
-    elseif not Config.Misc.AutoStomp and AutoStompConnection then
-        DisableAutoStomp()
-    end
-    
-    -- Update Triggerbot
-    if Config.Triggerbot.Enabled and not TriggerbotConnection then
-        EnableTriggerbot()
-    elseif not Config.Triggerbot.Enabled and TriggerbotConnection then
-        DisableTriggerbot()
-    end
-    
-    -- Update Kill Aura
-    if Config.KillAura.Enabled and not KillAuraConnection then
-        EnableKillAura()
-    elseif not Config.KillAura.Enabled and KillAuraConnection then
-        DisableKillAura()
-    end
-    
-    -- Update No Recoil
-    if Config.Rage.NoRecoil and not NoRecoilConnection then
-        EnableNoRecoil()
-    elseif not Config.Rage.NoRecoil and NoRecoilConnection then
-        DisableNoRecoil()
-    end
-    
-    -- Update Hitbox Expander
-    if Config.Misc.HitboxExpander and not HitboxConnection then
-        EnableHitboxExpander()
-    elseif not Config.Misc.HitboxExpander and HitboxConnection then
-        DisableHitboxExpander()
-    end
-    
-    -- Update Rapid Fire
-    if Config.Misc.RapidFire and not RapidFireConnection then
-        EnableRapidFire()
-    elseif not Config.Misc.RapidFire and RapidFireConnection then
-        DisableRapidFire()
-    end
-    
-    -- Update Hyper Rapid Fire
-    if Config.Misc.HyperRapidFire and not HyperRapidFireConnection then
-        EnableHyperRapidFire()
-    elseif not Config.Misc.HyperRapidFire and HyperRapidFireConnection then
-        DisableHyperRapidFire()
-    end
-    
-    -- Update Fast Reload
-    if Config.Misc.FastReload and not FastReloadConnection then
-        EnableFastReload()
-    elseif not Config.Misc.FastReload and FastReloadConnection then
-        DisableFastReload()
-    end
-    
-    -- Update Auto Reload
-    if Config.Misc.AutoReload and not AutoReloadConnection then
-        EnableAutoReload()
-    elseif not Config.Misc.AutoReload and AutoReloadConnection then
-        DisableAutoReload()
-    end
-    
-    -- Update Silent Reload
-    if Config.Misc.SilentReload and not SilentReloadConnection then
-        EnableSilentReload()
-    elseif not Config.Misc.SilentReload and SilentReloadConnection then
-        DisableSilentReload()
-    end
-    
-    -- Update Anti Void
-    if Config.Misc.AntiVoid and not AntiVoidConnection then
-        EnableAntiVoid()
-    elseif not Config.Misc.AntiVoid and AntiVoidConnection then
-        DisableAntiVoid()
-    end
-    
-    -- Update Anti RPG
-    if Config.Misc.AntiRPG and not AntiRPGConnection then
-        EnableAntiRPG()
-    elseif not Config.Misc.AntiRPG and AntiRPGConnection then
-        DisableAntiRPG()
-    end
-    
-    -- Update Chat Spy
-    if Config.Misc.ChatSpy and not ChatSpyConnection then
-        EnableChatSpy()
-    elseif not Config.Misc.ChatSpy and ChatSpyConnection then
-        DisableChatSpy()
-    end
-    
-    -- Update Anti Grab
-    if Config.Misc.AntiGrab and not AntiGrabConnection then
-        EnableAntiGrab()
-    elseif not Config.Misc.AntiGrab and AntiGrabConnection then
-        DisableAntiGrab()
-    end
-    
-    -- Update Anti Sit
-    if Config.Misc.AntiSit and not AntiSitConnection then
-        EnableAntiSit()
-    elseif not Config.Misc.AntiSit and AntiSitConnection then
-        DisableAntiSit()
-    end
-    
-    -- Update Wall Bang
-    if Config.Misc.WallBang and not WallBangConnection then
-        EnableWallBang()
-    elseif not Config.Misc.WallBang and WallBangConnection then
-        DisableWallBang()
-    end
-    
-    -- Update No Clip
-    if Config.Misc.NoClip and not NoClipConnection then
-        EnableNoClip()
-    elseif not Config.Misc.NoClip and NoClipConnection then
-        DisableNoClip()
-    end
-    
-    -- Update Silent Aim
-    if not SilentAimConnection then
-        EnableSilentAim()
     end
     
     -- Update target display
@@ -3938,7 +1742,7 @@ local function CreateNotification(Title, Text, Duration)
 end
 
 -- Script loaded notification
-CreateNotification("ghst.lol", "Script has been loaded successfully!", 5)
+CreateNotification("Mystic | Da Hood", "Script has been loaded successfully!", 5)
 
 -- Return configuration for external access
 return Config
