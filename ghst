@@ -14,14 +14,15 @@ local Camera = workspace.CurrentCamera
 local Config = {
     -- GUI
     UIName = "ghst.lol",
-    UISize = UDim2.new(0, 550, 0, 350),
-    UIPosition = UDim2.new(0.5, -275, 0.5, -175),
+    UISize = UDim2.new(0, 550, 0, 700), -- Even taller for vertical layout
+    UIPosition = UDim2.new(0.5, -275, 0.5, -350), -- Adjusted position to keep centered
     UITheme = {
-        Background = Color3.fromRGB(20, 20, 20),
-        TopBar = Color3.fromRGB(30, 30, 30),
-        Section = Color3.fromRGB(30, 30, 30),
+        Background = Color3.fromRGB(15, 15, 15), -- Darker black
+        TopBar = Color3.fromRGB(15, 15, 15), -- Darker black
+        Section = Color3.fromRGB(15, 15, 15), -- Darker black
+        SectionBorder = Color3.fromRGB(0, 120, 255), -- Blue border
         Text = Color3.fromRGB(255, 255, 255),
-        Border = Color3.fromRGB(40, 40, 40),
+        Border = Color3.fromRGB(0, 120, 255), -- Blue border
         Accent = Color3.fromRGB(0, 120, 255),
         AccentDark = Color3.fromRGB(0, 80, 170),
     },
@@ -311,15 +312,25 @@ function GUI.Create()
     MainGUI.Parent = CoreGui
     MainGUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
+    -- Main Border Frame (Blue outline)
+    local BorderFrame = Instance.new("Frame")
+    BorderFrame.Name = "BorderFrame"
+    BorderFrame.Size = Config.UISize
+    BorderFrame.Position = Config.UIPosition
+    BorderFrame.BackgroundColor3 = Config.UITheme.Border
+    BorderFrame.BorderSizePixel = 0
+    BorderFrame.Active = true
+    BorderFrame.Draggable = true
+    BorderFrame.Parent = MainGUI
+    
+    -- Main Content Frame
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Size = Config.UISize
-    MainFrame.Position = Config.UIPosition
+    MainFrame.Size = UDim2.new(1, -2, 1, -2)
+    MainFrame.Position = UDim2.new(0, 1, 0, 1)
     MainFrame.BackgroundColor3 = Config.UITheme.Background
     MainFrame.BorderSizePixel = 0
-    MainFrame.Active = true
-    MainFrame.Draggable = true
-    MainFrame.Parent = MainGUI
+    MainFrame.Parent = BorderFrame
     
     -- Create top bar
     local TopBar = Instance.new("Frame")
@@ -370,25 +381,33 @@ function GUI.Create()
     local SelectedTab = nil
     
     local function CreateTab(Name)
+        -- Tab Button Outline
+        local TabButtonOutline = Instance.new("Frame")
+        TabButtonOutline.Name = Name.."TabOutline"
+        TabButtonOutline.Size = UDim2.new(0, 80, 1, 0) -- Smaller width to fit more tabs
+        TabButtonOutline.BackgroundColor3 = Config.UITheme.Border -- Blue border
+        TabButtonOutline.BorderSizePixel = 0
+        TabButtonOutline.Parent = TabsFrame
+        
         -- Tab Button
         local TabButton = Instance.new("TextButton")
         TabButton.Name = Name.."Tab"
-        TabButton.Size = UDim2.new(0, 110, 1, 0)
+        TabButton.Size = UDim2.new(1, -2, 1, -1) -- 1 pixel border on sides, bottom only
+        TabButton.Position = UDim2.new(0, 1, 0, 0) -- Positioned to create border effect
         TabButton.BackgroundColor3 = Config.UITheme.TopBar
         TabButton.BorderSizePixel = 0
         TabButton.Text = Name
         TabButton.TextColor3 = Config.UITheme.Text
         TabButton.TextSize = 14
         TabButton.Font = Enum.Font.SourceSans
-        TabButton.Parent = TabsFrame
+        TabButton.Parent = TabButtonOutline
         
         -- Tab Content
-        local TabContent = Instance.new("ScrollingFrame")
+        local TabContent = Instance.new("Frame") -- Changed from ScrollingFrame to Frame to disable scrolling between tabs
         TabContent.Name = Name.."Content"
         TabContent.Size = UDim2.new(1, 0, 1, 0)
         TabContent.BackgroundTransparency = 1
         TabContent.BorderSizePixel = 0
-        TabContent.ScrollBarThickness = 4
         TabContent.Visible = false
         TabContent.Parent = ContentFrame
         
@@ -398,9 +417,7 @@ function GUI.Create()
         ContentLayout.Padding = UDim.new(0, 10)
         ContentLayout.Parent = TabContent
         
-        ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            TabContent.CanvasSize = UDim2.new(0, ContentLayout.AbsoluteContentSize.X, 0, 0)
-        end)
+        -- Removed canvas size adjustment since we're using Frame instead of ScrollingFrame
         
         TabButton.MouseButton1Click:Connect(function()
             if SelectedTab then
@@ -421,12 +438,20 @@ function GUI.Create()
     
     -- Create sections
     local function CreateSection(Parent, Title, Size)
+        local SectionOutline = Instance.new("Frame")
+        SectionOutline.Name = Title.."SectionOutline"
+        SectionOutline.Size = Size or UDim2.new(0, 250, 1, -20) -- Taller sections for more content
+        SectionOutline.BackgroundColor3 = Config.UITheme.SectionBorder -- Blue border
+        SectionOutline.BorderSizePixel = 0
+        SectionOutline.Parent = Parent
+        
         local Section = Instance.new("Frame")
         Section.Name = Title.."Section"
-        Section.Size = Size or UDim2.new(0, 250, 1, -10)
+        Section.Size = UDim2.new(1, -2, 1, -2) -- 1 pixel border 
+        Section.Position = UDim2.new(0, 1, 0, 1) -- 1 pixel offset
         Section.BackgroundColor3 = Config.UITheme.Section
         Section.BorderSizePixel = 0
-        Section.Parent = Parent
+        Section.Parent = SectionOutline
         
         local SectionTitle = Instance.new("TextLabel")
         SectionTitle.Name = "Title"
@@ -440,11 +465,15 @@ function GUI.Create()
         SectionTitle.Font = Enum.Font.SourceSansBold
         SectionTitle.Parent = Section
         
-        local SectionContent = Instance.new("Frame")
+        local SectionContent = Instance.new("ScrollingFrame") -- Changed to ScrollingFrame for scrollable sections
         SectionContent.Name = "Content"
         SectionContent.Size = UDim2.new(1, 0, 1, -30)
         SectionContent.Position = UDim2.new(0, 0, 0, 30)
         SectionContent.BackgroundTransparency = 1
+        SectionContent.BorderSizePixel = 0
+        SectionContent.ScrollBarThickness = 4
+        SectionContent.ScrollingDirection = Enum.ScrollingDirection.Y
+        SectionContent.CanvasSize = UDim2.new(0, 0, 0, 0) -- Will be adjusted dynamically
         SectionContent.Parent = Section
         
         local ContentLayout = Instance.new("UIListLayout")
@@ -452,6 +481,11 @@ function GUI.Create()
         ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ContentLayout.Padding = UDim.new(0, 5)
         ContentLayout.Parent = SectionContent
+        
+        -- Adjust canvas size based on content
+        ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            SectionContent.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 10)
+        end)
         
         -- Add padding
         local Padding = Instance.new("UIPadding")
