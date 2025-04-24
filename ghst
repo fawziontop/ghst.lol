@@ -21,12 +21,14 @@ local Config = {
     UIName = "ghst.lol | Da Hood",
     UISize = UDim2.new(0, 550, 0, 450), -- Increased vertical size
     UIPosition = UDim2.new(0.5, -275, 0.5, -225),
+    UIVisible = true,
+    UIToggleKey = Enum.KeyCode.RightControl,
     UITheme = {
-        Background = Color3.fromRGB(20, 20, 20),
-        TopBar = Color3.fromRGB(30, 30, 30),
-        Section = Color3.fromRGB(30, 30, 30),
+        Background = Color3.fromRGB(30, 30, 30), -- Charcoal colored
+        TopBar = Color3.fromRGB(40, 40, 40),
+        Section = Color3.fromRGB(40, 40, 40),
         Text = Color3.fromRGB(255, 255, 255),
-        Border = Color3.fromRGB(40, 40, 40),
+        Border = Color3.fromRGB(50, 50, 50),
         Accent = Color3.fromRGB(0, 120, 255),
         AccentDark = Color3.fromRGB(0, 80, 170),
     },
@@ -37,7 +39,7 @@ local Config = {
         Key = Enum.KeyCode.C,
         Target = nil,
         TargetPart = "Head",
-        Smoothness = 0.9,
+        Smoothness = 0.5,
         Prediction = 0.9,
         FOV = 250,
         ShowFOV = true,
@@ -58,8 +60,9 @@ local Config = {
     Movement = {
         Flying = false,
         FlySpeed = 100,
-        Speed = 200,
-        SpeedEnabled = false,
+        FlyKey = Enum.KeyCode.X,
+        Walkspeed = 200,
+        WalkspeedEnabled = false,
     },
     
     -- Target Feature
@@ -74,17 +77,7 @@ local Config = {
         Range = 10,
     },
     
-    -- Hit Features
-    HitFeatures = {
-        EnableSound = true,
-        EnableEffects = true,
-        HitSound = "Bubble",
-    },
-    
-    -- Neck Grabs
-    NeckGrabs = {
-        Enabled = false,
-    },
+
     
     -- Silent Aim
     SilentAim = {
@@ -96,12 +89,22 @@ local Config = {
         FOVColor = Color3.fromRGB(0, 120, 255),
     },
     
-    -- Desync
-    Desync = {
-        Enabled = false,
-        Visualize = false,
-        Method = "Normal",
+    -- Gun Features
+    GunFeatures = {
+        FastReload = false,
+        AutoReload = false,
+        SilentReload = false,
+        NoRecoil = false,
+        RapidFire = false,
     },
+    
+    -- Anti Features
+    AntiFeatures = {
+        AntiVoid = false,
+        AntiRPG = false,
+    },
+    
+
     
     -- ESP
     ESP = {
@@ -274,12 +277,11 @@ function GUI.Create()
         TabButton.Parent = TabsFrame
         
         -- Tab Content
-        local TabContent = Instance.new("ScrollingFrame")
+        local TabContent = Instance.new("Frame")
         TabContent.Name = Name.."Content"
         TabContent.Size = UDim2.new(1, 0, 1, 0)
         TabContent.BackgroundTransparency = 1
         TabContent.BorderSizePixel = 0
-        TabContent.ScrollBarThickness = 4
         TabContent.Visible = false
         TabContent.Parent = ContentFrame
         
@@ -288,10 +290,6 @@ function GUI.Create()
         ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ContentLayout.Padding = UDim.new(0, 10)
         ContentLayout.Parent = TabContent
-        
-        ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            TabContent.CanvasSize = UDim2.new(0, ContentLayout.AbsoluteContentSize.X, 0, 0)
-        end)
         
         TabButton.MouseButton1Click:Connect(function()
             if SelectedTab then
@@ -472,8 +470,6 @@ function GUI.Create()
             
             if Slider.Decimals then
                 Value = math.floor(Value * 10^Slider.Decimals) / 10^Slider.Decimals
-            else
-                Value = math.floor(Value)
             end
             
             Slider.Value = Value
@@ -487,6 +483,11 @@ function GUI.Create()
             end
         end
         
+        function Slider.SetMax(Value)
+            Slider.Max = Value
+            Slider.Set(Slider.Value)
+        end
+        
         SliderButton.MouseButton1Down:Connect(function()
             local Connection
             
@@ -496,9 +497,14 @@ function GUI.Create()
                     return
                 end
                 
-                local MousePercent = math.clamp((Mouse.X - SliderBackground.AbsolutePosition.X) / SliderBackground.AbsoluteSize.X, 0, 1)
-                local Value = Slider.Min + (Slider.Max - Slider.Min) * MousePercent
+                local MousePosition = UserInputService:GetMouseLocation()
+                local FramePosition = SliderBackground.AbsolutePosition
+                local FrameSize = SliderBackground.AbsoluteSize
                 
+                local Position = math.clamp(MousePosition.X - FramePosition.X, 0, FrameSize.X)
+                local Percent = Position / FrameSize.X
+                
+                local Value = Slider.Min + (Slider.Max - Slider.Min) * Percent
                 Slider.Set(Value)
             end)
         end)
@@ -538,67 +544,94 @@ function GUI.Create()
         DropdownButton.TextColor3 = Config.UITheme.Text
         DropdownButton.TextSize = 14
         DropdownButton.Font = Enum.Font.SourceSans
-        DropdownButton.TextXAlignment = Enum.TextXAlignment.Center
+        DropdownButton.TextXAlignment = Enum.TextXAlignment.Left
         DropdownButton.Parent = DropdownFrame
         
-        local DropdownList = Instance.new("Frame")
-        DropdownList.Name = "List"
-        DropdownList.Size = UDim2.new(1, 0, 0, 0)
-        DropdownList.Position = UDim2.new(0, 0, 0, 40)
-        DropdownList.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        DropdownList.BorderSizePixel = 0
-        DropdownList.Visible = false
-        DropdownList.ZIndex = 10
-        DropdownList.Parent = DropdownFrame
+        local DropdownPadding = Instance.new("UIPadding")
+        DropdownPadding.PaddingLeft = UDim.new(0, 5)
+        DropdownPadding.Parent = DropdownButton
         
-        local ListLayout = Instance.new("UIListLayout")
-        ListLayout.FillDirection = Enum.FillDirection.Vertical
-        ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        ListLayout.Padding = UDim.new(0, 0)
-        ListLayout.Parent = DropdownList
+        local DropdownContainer = Instance.new("Frame")
+        DropdownContainer.Name = "Container"
+        DropdownContainer.Size = UDim2.new(1, 0, 0, 0)
+        DropdownContainer.Position = UDim2.new(0, 0, 0, 40)
+        DropdownContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        DropdownContainer.BorderSizePixel = 0
+        DropdownContainer.Visible = false
+        DropdownContainer.ZIndex = 10
+        DropdownContainer.Parent = DropdownFrame
+        
+        local DropdownLayout = Instance.new("UIListLayout")
+        DropdownLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        DropdownLayout.Parent = DropdownContainer
         
         local Dropdown = {
-            Value = Default or "",
+            Value = Default,
             Options = Options,
             Open = false
         }
         
         function Dropdown.Set(Value)
-            if table.find(Dropdown.Options, Value) then
-                Dropdown.Value = Value
-                DropdownButton.Text = Dropdown.Value
-                
-                if Callback then
-                    Callback(Dropdown.Value)
-                end
+            Dropdown.Value = Value
+            DropdownButton.Text = Value
+            
+            if Callback then
+                Callback(Value)
             end
         end
         
         function Dropdown.Toggle()
             Dropdown.Open = not Dropdown.Open
-            DropdownList.Visible = Dropdown.Open
             
             if Dropdown.Open then
-                DropdownList.Size = UDim2.new(1, 0, 0, #Dropdown.Options * 20)
+                DropdownContainer.Size = UDim2.new(1, 0, 0, #Dropdown.Options * 20)
+                DropdownContainer.Visible = true
             else
-                DropdownList.Size = UDim2.new(1, 0, 0, 0)
+                DropdownContainer.Visible = false
             end
         end
         
-        -- Create option buttons
-        for i, Option in pairs(Dropdown.Options) do
+        function Dropdown.Add(Option)
+            table.insert(Dropdown.Options, Option)
+            
             local OptionButton = Instance.new("TextButton")
-            OptionButton.Name = Option.."Option"
+            OptionButton.Name = Option
             OptionButton.Size = UDim2.new(1, 0, 0, 20)
-            OptionButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-            OptionButton.BorderSizePixel = 0
+            OptionButton.BackgroundTransparency = 1
             OptionButton.Text = Option
             OptionButton.TextColor3 = Config.UITheme.Text
             OptionButton.TextSize = 14
             OptionButton.Font = Enum.Font.SourceSans
-            OptionButton.TextXAlignment = Enum.TextXAlignment.Center
+            OptionButton.TextXAlignment = Enum.TextXAlignment.Left
             OptionButton.ZIndex = 11
-            OptionButton.Parent = DropdownList
+            OptionButton.Parent = DropdownContainer
+            
+            local OptionPadding = Instance.new("UIPadding")
+            OptionPadding.PaddingLeft = UDim.new(0, 5)
+            OptionPadding.Parent = OptionButton
+            
+            OptionButton.MouseButton1Click:Connect(function()
+                Dropdown.Set(Option)
+                Dropdown.Toggle()
+            end)
+        end
+        
+        for _, Option in ipairs(Dropdown.Options) do
+            local OptionButton = Instance.new("TextButton")
+            OptionButton.Name = Option
+            OptionButton.Size = UDim2.new(1, 0, 0, 20)
+            OptionButton.BackgroundTransparency = 1
+            OptionButton.Text = Option
+            OptionButton.TextColor3 = Config.UITheme.Text
+            OptionButton.TextSize = 14
+            OptionButton.Font = Enum.Font.SourceSans
+            OptionButton.TextXAlignment = Enum.TextXAlignment.Left
+            OptionButton.ZIndex = 11
+            OptionButton.Parent = DropdownContainer
+            
+            local OptionPadding = Instance.new("UIPadding")
+            OptionPadding.PaddingLeft = UDim.new(0, 5)
+            OptionPadding.Parent = OptionButton
             
             OptionButton.MouseButton1Click:Connect(function()
                 Dropdown.Set(Option)
@@ -610,8 +643,6 @@ function GUI.Create()
             Dropdown.Toggle()
         end)
         
-        Dropdown.Set(Dropdown.Value)
-        
         return Dropdown
     end
     
@@ -619,7 +650,7 @@ function GUI.Create()
     local function CreateButton(Parent, Text, Callback)
         local ButtonFrame = Instance.new("Frame")
         ButtonFrame.Name = Text.."Button"
-        ButtonFrame.Size = UDim2.new(1, 0, 0, 25)
+        ButtonFrame.Size = UDim2.new(1, 0, 0, 30)
         ButtonFrame.BackgroundTransparency = 1
         ButtonFrame.Parent = Parent
         
@@ -631,7 +662,7 @@ function GUI.Create()
         Button.Text = Text
         Button.TextColor3 = Config.UITheme.Text
         Button.TextSize = 14
-        Button.Font = Enum.Font.SourceSans
+        Button.Font = Enum.Font.SourceSansBold
         Button.Parent = ButtonFrame
         
         Button.MouseButton1Click:Connect(function()
@@ -643,7 +674,101 @@ function GUI.Create()
         return Button
     end
     
-    -- Create keybind
+    -- Create tabs
+    local MainTab = CreateTab("Main")
+    local CamlockTab = CreateTab("Camlock")
+    local SilentAimTab = CreateTab("Silent Aim")
+    local MovementTab = CreateTab("Movement")
+    local VisualTab = CreateTab("Visual")
+    local MiscTab = CreateTab("Misc")
+    local SettingsTab = CreateTab("Settings")
+    
+    -- Main Tab
+    local MainSection = CreateSection(MainTab, "Information")
+    
+    local Info = Instance.new("TextLabel")
+    Info.Size = UDim2.new(1, 0, 0, 60)
+    Info.BackgroundTransparency = 1
+    Info.Text = "Welcome to ghst.lol | Da Hood\nPress Insert to toggle the GUI\nDiscord: discord.gg/ghstlol"
+    Info.TextColor3 = Config.UITheme.Text
+    Info.TextSize = 14
+    Info.Font = Enum.Font.SourceSans
+    Info.Parent = MainSection
+    
+    -- Camlock Tab
+    local CamlockSection = CreateSection(CamlockTab, "Camlock")
+    
+    local CamlockToggle = CreateToggle(CamlockSection, "Enable Camlock", Config.Camlock.Enabled, function(Value)
+        Config.Camlock.Enabled = Value
+    end)
+    
+    local ShowFOVToggle = CreateToggle(CamlockSection, "Show FOV", Config.Camlock.ShowFOV, function(Value)
+        Config.Camlock.ShowFOV = Value
+        FOVCircle.Visible = Value and Config.Camlock.Enabled
+    end)
+    
+    local CamlockFOVSlider = CreateSlider(CamlockSection, "FOV", 50, 500, Config.Camlock.FOV, 0, function(Value)
+        Config.Camlock.FOV = Value
+        FOVCircle.Radius = Value
+    end)
+    
+    local CamlockSmoothnessSlider = CreateSlider(CamlockSection, "Smoothness", 0, 1, Config.Camlock.Smoothness, 2, function(Value)
+        Config.Camlock.Smoothness = Value
+    end)
+    
+    local CamlockPredictionSlider = CreateSlider(CamlockSection, "Prediction", 0, 5, Config.Camlock.Prediction, 2, function(Value)
+        Config.Camlock.Prediction = Value
+    end)
+    
+    local CamlockPartDropdown = CreateDropdown(CamlockSection, "Target Part", {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso"}, Config.Camlock.TargetPart, function(Value)
+        Config.Camlock.TargetPart = Value
+    end)
+    
+    -- Silent Aim Tab
+    local SilentAimSection = CreateSection(SilentAimTab, "Silent Aim")
+    
+    local SilentAimToggle = CreateToggle(SilentAimSection, "Enable Silent Aim", Config.SilentAim.Enabled, function(Value)
+        Config.SilentAim.Enabled = Value
+    end)
+    
+    local ShowSilentFOVToggle = CreateToggle(SilentAimSection, "Show FOV", Config.SilentAim.FOVVisible, function(Value)
+        Config.SilentAim.FOVVisible = Value
+        SilentAimFOV.Visible = Value and Config.SilentAim.Enabled
+    end)
+    
+    local SilentAimFOVSlider = CreateSlider(SilentAimSection, "FOV", 50, 500, Config.SilentAim.FOV, 0, function(Value)
+        Config.SilentAim.FOV = Value
+        SilentAimFOV.Radius = Value
+    end)
+    
+    local SilentAimIgnoreKnockedToggle = CreateToggle(SilentAimSection, "Ignore Knocked Players", Config.SilentAim.IgnoreKnocked, function(Value)
+        Config.SilentAim.IgnoreKnocked = Value
+    end)
+    
+    local SilentAimLockNearestToggle = CreateToggle(SilentAimSection, "Lock to Nearest Player", Config.SilentAim.LockNearest, function(Value)
+        Config.SilentAim.LockNearest = Value
+    end)
+    
+    -- Movement Tab
+    local MovementSection = CreateSection(MovementTab, "Movement")
+    
+    local WalkspeedToggle = CreateToggle(MovementSection, "Walkspeed", Config.Movement.WalkspeedEnabled, function(Value)
+        Config.Movement.WalkspeedEnabled = Value
+    end)
+    
+    local WalkspeedSlider = CreateSlider(MovementSection, "Walkspeed Value", 16, 500, Config.Movement.Walkspeed, 0, function(Value)
+        Config.Movement.Walkspeed = Value
+    end)
+    
+    local FlyToggle = CreateToggle(MovementSection, "Fly", Config.Movement.Flying, function(Value)
+        Config.Movement.Flying = Value
+    end)
+    
+    local FlySpeedSlider = CreateSlider(MovementSection, "Fly Speed", 10, 500, Config.Movement.FlySpeed, 0, function(Value)
+        Config.Movement.FlySpeed = Value
+    end)
+    
+    -- Create key selector
     local function CreateKeybind(Parent, Text, Default, Callback)
         local KeybindFrame = Instance.new("Frame")
         KeybindFrame.Name = Text.."Keybind"
@@ -653,7 +778,7 @@ function GUI.Create()
         
         local KeybindLabel = Instance.new("TextLabel")
         KeybindLabel.Name = "Label"
-        KeybindLabel.Size = UDim2.new(0, 60, 1, 0)
+        KeybindLabel.Size = UDim2.new(0.5, -10, 1, 0)
         KeybindLabel.Position = UDim2.new(0, 0, 0, 0)
         KeybindLabel.BackgroundTransparency = 1
         KeybindLabel.Text = Text
@@ -665,11 +790,11 @@ function GUI.Create()
         
         local KeybindButton = Instance.new("TextButton")
         KeybindButton.Name = "Button"
-        KeybindButton.Size = UDim2.new(0, 30, 1, 0)
-        KeybindButton.Position = UDim2.new(1, -30, 0, 0)
+        KeybindButton.Size = UDim2.new(0.5, 0, 1, 0)
+        KeybindButton.Position = UDim2.new(0.5, 0, 0, 0)
         KeybindButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         KeybindButton.BorderSizePixel = 0
-        KeybindButton.Text = Default and Default.Name or "..."
+        KeybindButton.Text = Default.Name
         KeybindButton.TextColor3 = Config.UITheme.Text
         KeybindButton.TextSize = 14
         KeybindButton.Font = Enum.Font.SourceSans
@@ -677,498 +802,57 @@ function GUI.Create()
         
         local Keybind = {
             Value = Default,
-            Binding = false
+            Listening = false
         }
         
         function Keybind.Set(Value)
             Keybind.Value = Value
-            KeybindButton.Text = Keybind.Value and Keybind.Value.Name or "..."
+            KeybindButton.Text = Value.Name
             
             if Callback then
-                Callback(Keybind.Value)
+                Callback(Value)
             end
         end
         
         KeybindButton.MouseButton1Click:Connect(function()
-            Keybind.Binding = true
             KeybindButton.Text = "..."
+            Keybind.Listening = true
         end)
         
         UserInputService.InputBegan:Connect(function(Input)
-            if Keybind.Binding and Input.UserInputType == Enum.UserInputType.Keyboard then
+            if Keybind.Listening and Input.UserInputType == Enum.UserInputType.Keyboard then
                 Keybind.Set(Input.KeyCode)
-                Keybind.Binding = false
+                Keybind.Listening = false
             end
         end)
-        
-        Keybind.Set(Keybind.Value)
         
         return Keybind
     end
     
-    -- Create color picker
-    local function CreateColorPicker(Parent, Text, Default, Callback)
-        local ColorPickerFrame = Instance.new("Frame")
-        ColorPickerFrame.Name = Text.."ColorPicker"
-        ColorPickerFrame.Size = UDim2.new(1, 0, 0, 20)
-        ColorPickerFrame.BackgroundTransparency = 1
-        ColorPickerFrame.Parent = Parent
-        
-        local ColorPickerLabel = Instance.new("TextLabel")
-        ColorPickerLabel.Name = "Label"
-        ColorPickerLabel.Size = UDim2.new(1, -30, 1, 0)
-        ColorPickerLabel.Position = UDim2.new(0, 0, 0, 0)
-        ColorPickerLabel.BackgroundTransparency = 1
-        ColorPickerLabel.Text = Text
-        ColorPickerLabel.TextColor3 = Config.UITheme.Text
-        ColorPickerLabel.TextSize = 14
-        ColorPickerLabel.Font = Enum.Font.SourceSans
-        ColorPickerLabel.TextXAlignment = Enum.TextXAlignment.Left
-        ColorPickerLabel.Parent = ColorPickerFrame
-        
-        local ColorPickerButton = Instance.new("TextButton")
-        ColorPickerButton.Name = "Button"
-        ColorPickerButton.Size = UDim2.new(0, 20, 0, 20)
-        ColorPickerButton.Position = UDim2.new(1, -20, 0, 0)
-        ColorPickerButton.BackgroundColor3 = Default or Color3.fromRGB(255, 255, 255)
-        ColorPickerButton.BorderSizePixel = 0
-        ColorPickerButton.Text = ""
-        ColorPickerButton.Parent = ColorPickerFrame
-        
-        local ColorPicker = {
-            Value = Default or Color3.fromRGB(255, 255, 255),
-            Open = false
-        }
-        
-        -- Color picker popup
-        local Popup = Instance.new("Frame")
-        Popup.Name = "ColorPickerPopup"
-        Popup.Size = UDim2.new(0, 200, 0, 220)
-        Popup.Position = UDim2.new(1, 10, 0, 0)
-        Popup.BackgroundColor3 = Config.UITheme.Section
-        Popup.BorderSizePixel = 0
-        Popup.Visible = false
-        Popup.ZIndex = 100
-        Popup.Parent = ColorPickerFrame
-        
-        local PopupTitle = Instance.new("TextLabel")
-        PopupTitle.Name = "Title"
-        PopupTitle.Size = UDim2.new(1, 0, 0, 30)
-        PopupTitle.Position = UDim2.new(0, 0, 0, 0)
-        PopupTitle.BackgroundColor3 = Config.UITheme.Accent
-        PopupTitle.BorderSizePixel = 0
-        PopupTitle.Text = "Color Picker"
-        PopupTitle.TextColor3 = Config.UITheme.Text
-        PopupTitle.TextSize = 14
-        PopupTitle.Font = Enum.Font.SourceSansBold
-        PopupTitle.ZIndex = 101
-        PopupTitle.Parent = Popup
-        
-        -- Color display
-        local ColorDisplay = Instance.new("Frame")
-        ColorDisplay.Name = "ColorDisplay"
-        ColorDisplay.Size = UDim2.new(0, 180, 0, 20)
-        ColorDisplay.Position = UDim2.new(0.5, -90, 0, 40)
-        ColorDisplay.BackgroundColor3 = ColorPicker.Value
-        ColorDisplay.BorderSizePixel = 0
-        ColorDisplay.ZIndex = 101
-        ColorDisplay.Parent = Popup
-        
-        -- RGB inputs
-        local RedLabel = Instance.new("TextLabel")
-        RedLabel.Name = "RedLabel"
-        RedLabel.Size = UDim2.new(0, 20, 0, 20)
-        RedLabel.Position = UDim2.new(0, 10, 0, 70)
-        RedLabel.BackgroundTransparency = 1
-        RedLabel.Text = "R:"
-        RedLabel.TextColor3 = Config.UITheme.Text
-        RedLabel.TextSize = 14
-        RedLabel.Font = Enum.Font.SourceSans
-        RedLabel.ZIndex = 101
-        RedLabel.Parent = Popup
-        
-        local RedInput = Instance.new("TextBox")
-        RedInput.Name = "RedInput"
-        RedInput.Size = UDim2.new(0, 40, 0, 20)
-        RedInput.Position = UDim2.new(0, 30, 0, 70)
-        RedInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        RedInput.BorderSizePixel = 0
-        RedInput.Text = tostring(math.floor(ColorPicker.Value.R * 255))
-        RedInput.TextColor3 = Config.UITheme.Text
-        RedInput.TextSize = 14
-        RedInput.Font = Enum.Font.SourceSans
-        RedInput.ZIndex = 101
-        RedInput.Parent = Popup
-        
-        local GreenLabel = Instance.new("TextLabel")
-        GreenLabel.Name = "GreenLabel"
-        GreenLabel.Size = UDim2.new(0, 20, 0, 20)
-        GreenLabel.Position = UDim2.new(0, 80, 0, 70)
-        GreenLabel.BackgroundTransparency = 1
-        GreenLabel.Text = "G:"
-        GreenLabel.TextColor3 = Config.UITheme.Text
-        GreenLabel.TextSize = 14
-        GreenLabel.Font = Enum.Font.SourceSans
-        GreenLabel.ZIndex = 101
-        GreenLabel.Parent = Popup
-        
-        local GreenInput = Instance.new("TextBox")
-        GreenInput.Name = "GreenInput"
-        GreenInput.Size = UDim2.new(0, 40, 0, 20)
-        GreenInput.Position = UDim2.new(0, 100, 0, 70)
-        GreenInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        GreenInput.BorderSizePixel = 0
-        GreenInput.Text = tostring(math.floor(ColorPicker.Value.G * 255))
-        GreenInput.TextColor3 = Config.UITheme.Text
-        GreenInput.TextSize = 14
-        GreenInput.Font = Enum.Font.SourceSans
-        GreenInput.ZIndex = 101
-        GreenInput.Parent = Popup
-        
-        local BlueLabel = Instance.new("TextLabel")
-        BlueLabel.Name = "BlueLabel"
-        BlueLabel.Size = UDim2.new(0, 20, 0, 20)
-        BlueLabel.Position = UDim2.new(0, 150, 0, 70)
-        BlueLabel.BackgroundTransparency = 1
-        BlueLabel.Text = "B:"
-        BlueLabel.TextColor3 = Config.UITheme.Text
-        BlueLabel.TextSize = 14
-        BlueLabel.Font = Enum.Font.SourceSans
-        BlueLabel.ZIndex = 101
-        BlueLabel.Parent = Popup
-        
-        local BlueInput = Instance.new("TextBox")
-        BlueInput.Name = "BlueInput"
-        BlueInput.Size = UDim2.new(0, 40, 0, 20)
-        BlueInput.Position = UDim2.new(0, 170, 0, 70)
-        BlueInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        BlueInput.BorderSizePixel = 0
-        BlueInput.Text = tostring(math.floor(ColorPicker.Value.B * 255))
-        BlueInput.TextColor3 = Config.UITheme.Text
-        BlueInput.TextSize = 14
-        BlueInput.Font = Enum.Font.SourceSans
-        BlueInput.ZIndex = 101
-        BlueInput.Parent = Popup
-        
-        -- Color wheel
-        local ColorWheel = Instance.new("ImageLabel")
-        ColorWheel.Name = "ColorWheel"
-        ColorWheel.Size = UDim2.new(0, 150, 0, 150)
-        ColorWheel.Position = UDim2.new(0.5, -75, 0, 100)
-        ColorWheel.BackgroundTransparency = 1
-        ColorWheel.Image = "rbxassetid://4155801252"
-        ColorWheel.ZIndex = 101
-        ColorWheel.Parent = Popup
-        
-        -- Apply button
-        local ApplyButton = Instance.new("TextButton")
-        ApplyButton.Name = "ApplyButton"
-        ApplyButton.Size = UDim2.new(0, 80, 0, 25)
-        ApplyButton.Position = UDim2.new(0.5, -40, 1, -30)
-        ApplyButton.BackgroundColor3 = Config.UITheme.Accent
-        ApplyButton.BorderSizePixel = 0
-        ApplyButton.Text = "Apply"
-        ApplyButton.TextColor3 = Config.UITheme.Text
-        ApplyButton.TextSize = 14
-        ApplyButton.Font = Enum.Font.SourceSans
-        ApplyButton.ZIndex = 101
-        ApplyButton.Parent = Popup
-        
-        function ColorPicker.Set(Value)
-            ColorPicker.Value = Value
-            ColorPickerButton.BackgroundColor3 = ColorPicker.Value
-            ColorDisplay.BackgroundColor3 = ColorPicker.Value
-            
-            -- Update RGB inputs
-            RedInput.Text = tostring(math.floor(ColorPicker.Value.R * 255))
-            GreenInput.Text = tostring(math.floor(ColorPicker.Value.G * 255))
-            BlueInput.Text = tostring(math.floor(ColorPicker.Value.B * 255))
-            
-            if Callback then
-                Callback(ColorPicker.Value)
-            end
-        end
-        
-        function ColorPicker.Toggle()
-            ColorPicker.Open = not ColorPicker.Open
-            Popup.Visible = ColorPicker.Open
-        end
-        
-        ColorPickerButton.MouseButton1Click:Connect(function()
-            ColorPicker.Toggle()
-        end)
-        
-        -- Apply RGB values
-        local function ApplyRGB()
-            local R = tonumber(RedInput.Text) or 0
-            local G = tonumber(GreenInput.Text) or 0
-            local B = tonumber(BlueInput.Text) or 0
-            
-            R = math.clamp(R, 0, 255) / 255
-            G = math.clamp(G, 0, 255) / 255
-            B = math.clamp(B, 0, 255) / 255
-            
-            ColorPicker.Set(Color3.fromRGB(R * 255, G * 255, B * 255))
-        end
-        
-        RedInput.FocusLost:Connect(function()
-            ApplyRGB()
-        end)
-        
-        GreenInput.FocusLost:Connect(function()
-            ApplyRGB()
-        end)
-        
-        BlueInput.FocusLost:Connect(function()
-            ApplyRGB()
-        end)
-        
-        -- Color wheel
-        ColorWheel.InputBegan:Connect(function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                local Connection
-                
-                Connection = RunService.RenderStepped:Connect(function()
-                    if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-                        Connection:Disconnect()
-                        return
-                    end
-                    
-                    local MousePos = UserInputService:GetMouseLocation() - Vector2.new(0, 36)
-                    local Center = ColorWheel.AbsolutePosition + ColorWheel.AbsoluteSize / 2
-                    local Dist = (MousePos - Center).Magnitude
-                    local Direction = (MousePos - Center).Unit
-                    
-                    if Dist <= ColorWheel.AbsoluteSize.X / 2 then
-                        local Hue = math.atan2(Direction.Y, Direction.X) + math.pi
-                        local Saturation = Dist / (ColorWheel.AbsoluteSize.X / 2)
-                        
-                        local Color = Color3.fromHSV(Hue / (math.pi * 2), Saturation, 1)
-                        ColorPicker.Set(Color)
-                    end
-                end)
-            end
-        end)
-        
-        -- Apply button
-        ApplyButton.MouseButton1Click:Connect(function()
-            ColorPicker.Toggle()
-        end)
-        
-        ColorPicker.Set(ColorPicker.Value)
-        
-        return ColorPicker
-    end
-    
-    -- Create tabs
-    local MainTab = CreateTab("Main")
-    local LegitTab = CreateTab("Legit")
-    local MovementTab = CreateTab("Movement")
-    local VisualsTab = CreateTab("Visuals")
-    local MiscTab = CreateTab("Misc")
-    local UISettingsTab = CreateTab("UI Settings")
-    
-    -- Main Tab
-    local CamlockSection = CreateSection(MainTab, "Camlock")
-    
-    local CamlockToggle = CreateToggle(CamlockSection, "Camlock Toggle", Config.Camlock.Enabled, function(Value)
-        Config.Camlock.Enabled = Value
+    local FlyKeyBind = CreateKeybind(MovementSection, "Fly Key", Config.Movement.FlyKey, function(Value)
+        Config.Movement.FlyKey = Value
     end)
     
-    local CamlockKeybind = CreateKeybind(CamlockSection, "Keybind", Config.Camlock.Key, function(Value)
-        Config.Camlock.Key = Value
-    end)
+    -- Strafe Section
+    local StrafeSection = CreateSection(MovementTab, "Strafe")
     
-    local CamlockSmoothness = CreateSlider(CamlockSection, "Smoothness", 0.5, 1, Config.Camlock.Smoothness, 2, function(Value)
-        Config.Camlock.Smoothness = Value
-    end)
-    
-    local CamlockPrediction = CreateSlider(CamlockSection, "Prediction", 0.9, 20, Config.Camlock.Prediction, 2, function(Value)
-        Config.Camlock.Prediction = Value
-    end)
-    
-    local CamlockPartDropdown = CreateDropdown(CamlockSection, "Hit Part", {"Head", "UpperTorso", "LowerTorso", "RightArm", "LeftArm", "RightLeg", "LeftLeg"}, Config.Camlock.TargetPart, function(Value)
-        Config.Camlock.TargetPart = Value
-    end)
-    
-    local StrafeSection = CreateSection(MainTab, "Strafe")
-    
-    local StrafeToggle = CreateToggle(StrafeSection, "Enabled [Q]", Config.Strafe.Enabled, function(Value)
+    local StrafeToggle = CreateToggle(StrafeSection, "Strafe", Config.Strafe.Enabled, function(Value)
         Config.Strafe.Enabled = Value
     end)
     
-    local StrafeMethodDropdown = CreateDropdown(StrafeSection, "Select Method", {"Orbit", "Spin", "Random"}, Config.Strafe.Method, function(Value)
-        Config.Strafe.Method = Value
-    end)
+    -- Only keep Orbit method for strafe
+    Config.Strafe.Method = "Orbit"
     
-    local StrafeSpeedSlider = CreateSlider(StrafeSection, "Strafe Speed", 50, 1000, Config.Strafe.Speed, 0, function(Value)
+    local StrafeSpeedSlider = CreateSlider(StrafeSection, "Speed", 50, 500, Config.Strafe.Speed, 0, function(Value)
         Config.Strafe.Speed = Value
     end)
     
-    local OrbitDistanceSlider = CreateSlider(StrafeSection, "Orbit Distance", 5, 30, Config.Strafe.Distance, 0, function(Value)
+    local StrafeDistanceSlider = CreateSlider(StrafeSection, "Distance", 5, 50, Config.Strafe.Distance, 0, function(Value)
         Config.Strafe.Distance = Value
     end)
     
-    local TargetFeatureSection = CreateSection(MainTab, "Target Feature")
-    
-    local TargetUserLabel = Instance.new("TextLabel")
-    TargetUserLabel.Name = "TargetUserLabel"
-    TargetUserLabel.Size = UDim2.new(1, 0, 0, 20)
-    TargetUserLabel.BackgroundTransparency = 1
-    TargetUserLabel.Text = "Target User [Not Display Name]"
-    TargetUserLabel.TextColor3 = Config.UITheme.Text
-    TargetUserLabel.TextSize = 14
-    TargetUserLabel.Font = Enum.Font.SourceSans
-    TargetUserLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TargetUserLabel.Parent = TargetFeatureSection
-    
-    local TargetLabel = Instance.new("TextLabel")
-    TargetLabel.Name = "TargetLabel"
-    TargetLabel.Size = UDim2.new(1, 0, 0, 20)
-    TargetLabel.BackgroundTransparency = 1
-    TargetLabel.Text = "Target:"
-    TargetLabel.TextColor3 = Config.UITheme.Text
-    TargetLabel.TextSize = 14
-    TargetLabel.Font = Enum.Font.SourceSans
-    TargetLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TargetLabel.Parent = TargetFeatureSection
-    
-    local GotoButton = CreateButton(TargetFeatureSection, "Goto", function()
-        if Config.Camlock.Target and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = Config.Camlock.Target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
-        end
-    end)
-    
-    local ViewToggle = CreateToggle(TargetFeatureSection, "View", false, function(Value)
-        if Value then
-            if Config.Camlock.Target then
-                Camera.CameraSubject = Config.Camlock.Target.Character.Humanoid
-            end
-        else
-            Camera.CameraSubject = LocalPlayer.Character.Humanoid
-        end
-    end)
-    
-    local SelectGunDropdown = CreateDropdown(TargetFeatureSection, "Select Gun", {"Rifle", "SMG", "Pistol", "Shotgun"}, "Rifle", function(Value)
-        -- Gun selection
-    end)
-    
-    -- Legit Tab
-    local LegitCamlockSection = CreateSection(LegitTab, "Camlock")
-    
-    local LegitCamlockToggle = CreateToggle(LegitCamlockSection, "Camlock Toggle", Config.Camlock.Enabled, function(Value)
-        Config.Camlock.Enabled = Value
-    end)
-    
-    local LegitCamlockKeybind = CreateKeybind(LegitCamlockSection, "Keybind", Config.Camlock.Key, function(Value)
-        Config.Camlock.Key = Value
-    end)
-    
-    local LegitCamlockSmoothness = CreateSlider(LegitCamlockSection, "Smoothness", 0.5, 1, Config.Camlock.Smoothness, 2, function(Value)
-        Config.Camlock.Smoothness = Value
-    end)
-    
-    local LegitCamlockPrediction = CreateSlider(LegitCamlockSection, "Prediction", 0.9, 20, Config.Camlock.Prediction, 2, function(Value)
-        Config.Camlock.Prediction = Value
-    end)
-    
-    local LegitCamlockPartDropdown = CreateDropdown(LegitCamlockSection, "Hit Part", {"Head", "UpperTorso", "LowerTorso", "RightArm", "LeftArm", "RightLeg", "LeftLeg"}, Config.Camlock.TargetPart, function(Value)
-        Config.Camlock.TargetPart = Value
-    end)
-    
-    -- Kill Aura Section
-    local KillAuraSection = CreateSection(LegitTab, "Kill Aura")
-    
-    local KillAuraToggle = CreateToggle(KillAuraSection, "Kill Aura", Config.KillAura.Enabled, function(Value)
-        Config.KillAura.Enabled = Value
-    end)
-    
-    local IgnoreKnockedPlayersToggle = CreateToggle(KillAuraSection, "Ignore Knocked Players", Config.KillAura.IgnoreKnocked, function(Value)
-        Config.KillAura.IgnoreKnocked = Value
-    end)
-    
-    local KillAuraRangeSlider = CreateSlider(KillAuraSection, "Kill Aura Range", 1, 250, Config.KillAura.Range, 0, function(Value)
-        Config.KillAura.Range = Value
-    end)
-    
-    -- Hit Features Section
-    local HitFeaturesSection = CreateSection(LegitTab, "For Hit Thing")
-    
-    local EnableHitSoundToggle = CreateToggle(HitFeaturesSection, "Enable Hit Sound", Config.HitFeatures.EnableSound, function(Value)
-        Config.HitFeatures.EnableSound = Value
-    end)
-    
-    local EnableHitEffectsToggle = CreateToggle(HitFeaturesSection, "Enable Hit Effects", Config.HitFeatures.EnableEffects, function(Value)
-        Config.HitFeatures.EnableEffects = Value
-    end)
-    
-    local HitSoundDropdown = CreateDropdown(HitFeaturesSection, "Hitsound", {"Bubble", "Click", "Knock", "Pop"}, Config.HitFeatures.HitSound, function(Value)
-        Config.HitFeatures.HitSound = Value
-    end)
-    
-    -- Neck Grabs Section
-    local NeckGrabsSection = CreateSection(LegitTab, "Neck Grabs")
-    
-    local NeckGrabsToggle = CreateToggle(NeckGrabsSection, "Neck Grabs", Config.NeckGrabs.Enabled, function(Value)
-        Config.NeckGrabs.Enabled = Value
-    end)
-    
-    -- Silent Aim Section
-    local SilentAimSection = CreateSection(LegitTab, "Silent Aim")
-    
-    local SilentAimToggle = CreateToggle(SilentAimSection, "Silent Aim", Config.SilentAim.Enabled, function(Value)
-        Config.SilentAim.Enabled = Value
-    end)
-    
-    local IgnoreKnockedPlayerToggle = CreateToggle(SilentAimSection, "Ignore Knocked Player", Config.SilentAim.IgnoreKnocked, function(Value)
-        Config.SilentAim.IgnoreKnocked = Value
-    end)
-    
-    local LockNearestToggle = CreateToggle(SilentAimSection, "Lock Nearest", Config.SilentAim.LockNearest, function(Value)
-        Config.SilentAim.LockNearest = Value
-    end)
-    
-    local FOVSlider = CreateSlider(SilentAimSection, "FOV", 10, 500, Config.SilentAim.FOV, 0, function(Value)
-        Config.SilentAim.FOV = Value
-        SilentAimFOV.Radius = Value
-    end)
-    
-    -- Desync Section
-    local DesyncSection = CreateSection(LegitTab, "Desync")
-    
-    local DesyncToggle = CreateToggle(DesyncSection, "Desync", Config.Desync.Enabled, function(Value)
-        Config.Desync.Enabled = Value
-    end)
-    
-    local VisualizeToggle = CreateToggle(DesyncSection, "Visualize", Config.Desync.Visualize, function(Value)
-        Config.Desync.Visualize = Value
-    end)
-    
-    local MethodDropdown = CreateDropdown(DesyncSection, "Method", {"Normal", "Underscore", "Predict"}, Config.Desync.Method, function(Value)
-        Config.Desync.Method = Value
-    end)
-    
-    -- Movement Tab
-    local MovementSection = CreateSection(MovementTab, "Movement")
-    
-    local FlyToggle = CreateToggle(MovementSection, "Fly", Config.Movement.Flying, function(Value)
-        Config.Movement.Flying = Value
-    end)
-    
-    local FlySpeedSlider = CreateSlider(MovementSection, "Fly Speed", 10, 500, Config.Movement.FlySpeed, 0, function(Value)
-        Config.Movement.FlySpeed = Value
-    end)
-    
-    local SpeedToggle = CreateToggle(MovementSection, "Speed", Config.Movement.SpeedEnabled, function(Value)
-        Config.Movement.SpeedEnabled = Value
-    end)
-    
-    local SpeedSlider = CreateSlider(MovementSection, "Speed", 16, 1000, Config.Movement.Speed, 0, function(Value)
-        Config.Movement.Speed = Value
-    end)
-    
-    -- Visuals Tab
-    local ESPSection = CreateSection(VisualsTab, "ESP")
+    -- Visual Tab
+    local ESPSection = CreateSection(VisualTab, "ESP")
     
     local ESPToggle = CreateToggle(ESPSection, "Enable ESP", Config.ESP.Enabled, function(Value)
         Config.ESP.Enabled = Value
@@ -1190,566 +874,639 @@ function GUI.Create()
         Config.ESP.TracerESP = Value
     end)
     
-    local BoxColorPicker = CreateColorPicker(ESPSection, "Box Color", Config.ESP.BoxColor, function(Value)
-        Config.ESP.BoxColor = Value
+    -- Misc Tab
+    local MiscSection = CreateSection(MiscTab, "Misc Features")
+    
+    local KillAuraToggle = CreateToggle(MiscSection, "Kill Aura", Config.KillAura.Enabled, function(Value)
+        Config.KillAura.Enabled = Value
     end)
     
-    local NameColorPicker = CreateColorPicker(ESPSection, "Name Color", Config.ESP.NameColor, function(Value)
-        Config.ESP.NameColor = Value
+    local KillAuraRangeSlider = CreateSlider(MiscSection, "Kill Aura Range", 5, 30, Config.KillAura.Range, 0, function(Value)
+        Config.KillAura.Range = Value
     end)
     
-    local HealthColorPicker = CreateColorPicker(ESPSection, "Health Color", Config.ESP.HealthColor, function(Value)
-        Config.ESP.HealthColor = Value
+    local KillAuraIgnoreKnockedToggle = CreateToggle(MiscSection, "Ignore Knocked Players", Config.KillAura.IgnoreKnocked, function(Value)
+        Config.KillAura.IgnoreKnocked = Value
     end)
     
-    local TracerColorPicker = CreateColorPicker(ESPSection, "Tracer Color", Config.ESP.TracerColor, function(Value)
-        Config.ESP.TracerColor = Value
+    -- Silent Aim Section
+    local SilentAimSection = CreateSection(MiscTab, "Silent Aim Features")
+    
+    local SilentAimToggle = CreateToggle(SilentAimSection, "Silent Aim", Config.SilentAim.Enabled, function(Value)
+        Config.SilentAim.Enabled = Value
     end)
     
-    -- UI Settings Tab
-    local UISettingsSection = CreateSection(UISettingsTab, "UI Settings")
-    
-    local BackgroundColorPicker = CreateColorPicker(UISettingsSection, "Background Color", Config.UITheme.Background, function(Value)
-        Config.UITheme.Background = Value
-        MainFrame.BackgroundColor3 = Value
-        ContentFrame.BackgroundColor3 = Value
+    local SilentAimFOVSlider = CreateSlider(SilentAimSection, "FOV", 50, 500, Config.SilentAim.FOV, 0, function(Value)
+        Config.SilentAim.FOV = Value
+        SilentAimFOV.Radius = Value
     end)
     
-    local TopBarColorPicker = CreateColorPicker(UISettingsSection, "Top Bar Color", Config.UITheme.TopBar, function(Value)
-        Config.UITheme.TopBar = Value
-        TopBar.BackgroundColor3 = Value
-        TabsFrame.BackgroundColor3 = Value
-        
-        for _, Tab in pairs(Tabs) do
-            Tab.Button.BackgroundColor3 = Value
-        end
+    local SilentAimFOVVisibleToggle = CreateToggle(SilentAimSection, "Show FOV", Config.SilentAim.FOVVisible, function(Value)
+        Config.SilentAim.FOVVisible = Value
     end)
     
-    local SectionColorPicker = CreateColorPicker(UISettingsSection, "Section Color", Config.UITheme.Section, function(Value)
-        Config.UITheme.Section = Value
-        
-        for _, TabContent in pairs(ContentFrame:GetChildren()) do
-            if TabContent:IsA("ScrollingFrame") then
-                for _, Section in pairs(TabContent:GetChildren()) do
-                    if Section:IsA("Frame") then
-                        Section.BackgroundColor3 = Value
-                    end
-                end
-            end
-        end
+    -- Gun Features Section
+    local GunSection = CreateSection(MiscTab, "Gun Features")
+    
+    local FastReloadToggle = CreateToggle(GunSection, "Fast Reload", Config.GunFeatures.FastReload, function(Value)
+        Config.GunFeatures.FastReload = Value
     end)
     
-    local TextColorPicker = CreateColorPicker(UISettingsSection, "Text Color", Config.UITheme.Text, function(Value)
-        Config.UITheme.Text = Value
-        TitleLabel.TextColor3 = Value
-        
-        -- Update all text colors
-        for _, TabContent in pairs(ContentFrame:GetChildren()) do
-            if TabContent:IsA("ScrollingFrame") then
-                for _, Section in pairs(TabContent:GetChildren()) do
-                    if Section:IsA("Frame") then
-                        for _, Component in pairs(Section:GetDescendants()) do
-                            if Component:IsA("TextLabel") or Component:IsA("TextButton") then
-                                Component.TextColor3 = Value
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        
-        for _, Tab in pairs(Tabs) do
-            Tab.Button.TextColor3 = Value
-        end
+    local AutoReloadToggle = CreateToggle(GunSection, "Auto Reload", Config.GunFeatures.AutoReload, function(Value)
+        Config.GunFeatures.AutoReload = Value
     end)
     
-    local AccentColorPicker = CreateColorPicker(UISettingsSection, "Accent Color", Config.UITheme.Accent, function(Value)
-        Config.UITheme.Accent = Value
-        Config.UITheme.AccentDark = Color3.fromRGB(
-            math.clamp(Value.R * 255 - 40, 0, 255),
-            math.clamp(Value.G * 255 - 40, 0, 255),
-            math.clamp(Value.B * 255 - 40, 0, 255)
-        )
-        
-        -- Update accent colors
-        for _, TabContent in pairs(ContentFrame:GetChildren()) do
-            if TabContent:IsA("ScrollingFrame") then
-                for _, Section in pairs(TabContent:GetChildren()) do
-                    if Section:IsA("Frame") and Section:FindFirstChild("Title") then
-                        Section.Title.BackgroundColor3 = Value
-                    end
-                end
-            end
+    local SilentReloadToggle = CreateToggle(GunSection, "Silent Reload", Config.GunFeatures.SilentReload, function(Value)
+        Config.GunFeatures.SilentReload = Value
+    end)
+    
+    local NoRecoilToggle = CreateToggle(GunSection, "No Recoil", Config.GunFeatures.NoRecoil, function(Value)
+        Config.GunFeatures.NoRecoil = Value
+    end)
+    
+    local RapidFireToggle = CreateToggle(GunSection, "Rapid Fire", Config.GunFeatures.RapidFire, function(Value)
+        Config.GunFeatures.RapidFire = Value
+    end)
+    
+    -- Anti Features Section
+    local AntiSection = CreateSection(MiscTab, "Anti Features")
+    
+    local AntiVoidToggle = CreateToggle(AntiSection, "Anti Void", Config.AntiFeatures.AntiVoid, function(Value)
+        Config.AntiFeatures.AntiVoid = Value
+    end)
+    
+    local AntiRPGToggle = CreateToggle(AntiSection, "Anti RPG", Config.AntiFeatures.AntiRPG, function(Value)
+        Config.AntiFeatures.AntiRPG = Value
+    end)
+    
+    -- Settings Tab
+    local UISection = CreateSection(SettingsTab, "UI Settings")
+    
+    local UIScaleSlider = CreateSlider(UISection, "UI Scale", 0.5, 1.5, 1, 2, function(Value)
+        -- Create UIScale if it doesn't exist
+        if not MainGUI:FindFirstChild("UIScale") then
+            local UIScale = Instance.new("UIScale")
+            UIScale.Scale = 1
+            UIScale.Parent = MainGUI
         end
         
-        -- Update other accent colored elements
-        for _, TabContent in pairs(ContentFrame:GetChildren()) do
-            if TabContent:IsA("ScrollingFrame") then
-                for _, Section in pairs(TabContent:GetChildren()) do
-                    if Section:IsA("Frame") then
-                        for _, Component in pairs(Section:GetDescendants()) do
-                            if Component:IsA("Frame") and Component.Name == "Fill" then
-                                Component.BackgroundColor3 = Value
-                            elseif Component:IsA("TextButton") and Component.Parent.Name:match("Button") then
-                                Component.BackgroundColor3 = Value
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        
-        -- Update FOV Circles
-        FOVCircle.Color = Value
-        SilentAimFOV.Color = Value
+        MainGUI.UIScale.Scale = Value
     end)
     
-    -- Set default tab
-    Tabs["Main"].Button.MouseButton1Click:Fire()
-end
-
--- Update FOV circles
-RunService.RenderStepped:Connect(function()
-    if Config.Camlock.ShowFOV then
-        FOVCircle.Visible = true
-        FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
-        FOVCircle.Radius = Config.Camlock.FOV
-        FOVCircle.Color = Config.Camlock.FOVColor
-    else
-        FOVCircle.Visible = false
+    -- Select the Main tab by default
+    if Tabs["Main"] then
+        Tabs["Main"].Button.MouseButton1Click:Fire()
     end
     
-    if Config.SilentAim.FOVVisible then
-        SilentAimFOV.Visible = true
-        SilentAimFOV.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
-        SilentAimFOV.Radius = Config.SilentAim.FOV
-        SilentAimFOV.Color = Config.SilentAim.FOVColor
-    else
-        SilentAimFOV.Visible = false
+    -- Create draggable GUI
+    local UIDrag = {}
+    
+    UIDrag.dragging = false
+    UIDrag.dragInput = nil
+    UIDrag.dragStart = nil
+    UIDrag.startPos = nil
+    
+    local function UpdateDrag(input)
+        local Delta = input.Position - UIDrag.dragStart
+        MainFrame.Position = UDim2.new(UIDrag.startPos.X.Scale, UIDrag.startPos.X.Offset + Delta.X, UIDrag.startPos.Y.Scale, UIDrag.startPos.Y.Offset + Delta.Y)
     end
-end)
-
--- Camlock functionality (toggle mode)
-local CamlockActive = false -- Toggle state for camlock
-
-UserInputService.InputBegan:Connect(function(Input, GameProcessed)
-    if not GameProcessed and Input.KeyCode == Config.Camlock.Key then
-        CamlockActive = not CamlockActive -- Toggle the state
-        
-        if CamlockActive then
-            -- Activate camlock
-            local Target = Utility.GetClosestPlayerToMouse()
-            if Target then
-                Config.Camlock.Target = Target
-            end
-        else
-            -- Deactivate camlock
-            Config.Camlock.Target = nil
-        end
-    end
-end)
-
--- Add continuous target acquisition when camlock is active
-RunService.Heartbeat:Connect(function()
-    if CamlockActive and (Config.Camlock.Target == nil or not Config.Camlock.Target.Character or not Config.Camlock.Target.Character:FindFirstChild(Config.Camlock.TargetPart)) then
-        -- Try to find a new target if current one is invalid
-        local Target = Utility.GetClosestPlayerToMouse()
-        if Target then
-            Config.Camlock.Target = Target
-        end
-    end
-end)
-
--- Camlock update function
-RunService.RenderStepped:Connect(function()
-    -- Only apply camlock when both feature is enabled in settings AND toggle is active
-    if Config.Camlock.Enabled and CamlockActive and Config.Camlock.Target and Config.Camlock.Target.Character and Config.Camlock.Target.Character:FindFirstChild(Config.Camlock.TargetPart) and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local TargetPart = Config.Camlock.Target.Character:FindFirstChild(Config.Camlock.TargetPart)
-        local TargetPosition = TargetPart.Position
-        local TargetVelocity = TargetPart.Velocity
-        
-        TargetPosition = TargetPosition + (TargetVelocity * Config.Camlock.Prediction)
-        
-        local CameraPosition = Camera.CFrame.Position
-        local CameraLookVector = (TargetPosition - CameraPosition).Unit
-        
-        local TargetCFrame = CFrame.new(CameraPosition, CameraPosition + CameraLookVector)
-        Camera.CFrame = Camera.CFrame:Lerp(TargetCFrame, Config.Camlock.Smoothness)
-    end
-end)
-
--- Strafe feature
-local StrafeConnection = nil
-UserInputService.InputBegan:Connect(function(Input, GameProcessed)
-    if not GameProcessed and Input.KeyCode == Enum.KeyCode.Q then
-        Config.Strafe.Enabled = not Config.Strafe.Enabled
-        
-        if Config.Strafe.Enabled then
-            Config.Strafe.Target = Utility.GetClosestPlayer()
+    
+    TopBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            UIDrag.dragging = true
+            UIDrag.dragStart = input.Position
+            UIDrag.startPos = MainFrame.Position
             
-            if StrafeConnection then
-                StrafeConnection:Disconnect()
-            end
-            
-            StrafeConnection = RunService.Heartbeat:Connect(function()
-                if Config.Strafe.Enabled and Config.Strafe.Target and Config.Strafe.Target.Character and Config.Strafe.Target.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local TargetHRP = Config.Strafe.Target.Character.HumanoidRootPart
-                    local LocalHRP = LocalPlayer.Character.HumanoidRootPart
-                    
-                    local TargetPosition = TargetHRP.Position
-                    local TargetCFrame = TargetHRP.CFrame
-                    
-                    if Config.Strafe.Method == "Orbit" then
-                        local Angle = tick() * (Config.Strafe.Speed / 100)
-                        local Offset = Vector3.new(math.cos(Angle), 0, math.sin(Angle)) * Config.Strafe.Distance
-                        local Position = TargetPosition + Offset
-                        
-                        LocalHRP.CFrame = CFrame.new(Position, TargetPosition)
-                    elseif Config.Strafe.Method == "Spin" then
-                        local Angle = tick() * (Config.Strafe.Speed / 100)
-                        local Position = TargetPosition + Vector3.new(0, 0, Config.Strafe.Distance)
-                        
-                        LocalHRP.CFrame = CFrame.new(Position) * CFrame.Angles(0, Angle, 0)
-                    elseif Config.Strafe.Method == "Random" then
-                        local Time = tick() * (Config.Strafe.Speed / 200)
-                        local OffsetX = math.sin(Time) * Config.Strafe.Distance
-                        local OffsetZ = math.cos(Time * 1.5) * Config.Strafe.Distance
-                        local Position = TargetPosition + Vector3.new(OffsetX, 0, OffsetZ)
-                        
-                        LocalHRP.CFrame = CFrame.new(Position, TargetPosition)
-                    end
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    UIDrag.dragging = false
                 end
             end)
-        else
-            if StrafeConnection then
-                StrafeConnection:Disconnect()
-                StrafeConnection = nil
+        end
+    end)
+    
+    TopBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            UIDrag.dragInput = input
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if input == UIDrag.dragInput and UIDrag.dragging then
+            UpdateDrag(input)
+        end
+    end)
+    
+    return MainGUI
+end
+
+-- Initialize camlock
+local CamlockFunction = function()
+    UserInputService.InputBegan:Connect(function(Input, Processed)
+        if not Processed and Input.KeyCode == Config.Camlock.Key then
+            if Config.Camlock.Enabled then
+                if Config.Camlock.Target then
+                    Config.Camlock.Target = nil
+                else
+                    Config.Camlock.Target = Utility.GetClosestPlayerToMouse()
+                end
+            end
+        end
+    end)
+    
+    RunService.RenderStepped:Connect(function()
+        -- Update FOV Circle
+        FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
+        FOVCircle.Visible = Config.Camlock.Enabled and Config.Camlock.ShowFOV
+        
+        -- Update SilentAim FOV
+        SilentAimFOV.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
+        SilentAimFOV.Visible = Config.SilentAim.Enabled and Config.SilentAim.FOVVisible
+        
+        -- Camlock Logic
+        if Config.Camlock.Enabled and Config.Camlock.Target and Config.Camlock.Target.Character and Config.Camlock.Target.Character:FindFirstChild(Config.Camlock.TargetPart) and Config.Camlock.Target.Character:FindFirstChild("Humanoid") and Config.Camlock.Target.Character.Humanoid.Health > 0 then
+            local TargetPart = Config.Camlock.Target.Character[Config.Camlock.TargetPart]
+            local TargetPos = TargetPart.Position
+            
+            -- Apply prediction
+            if Config.Camlock.Prediction > 0 then
+                local TargetVelocity = TargetPart.Velocity
+                TargetPos = TargetPos + (TargetVelocity * Config.Camlock.Prediction)
+            end
+            
+            -- Calculate target camera position
+            local CameraPos = Camera.CFrame.Position
+            local LookVector = (TargetPos - CameraPos).unit
+            local TargetCFrame = CFrame.new(CameraPos, CameraPos + LookVector)
+            
+            -- Apply smoothing
+            Camera.CFrame = Camera.CFrame:Lerp(TargetCFrame, 1 - Config.Camlock.Smoothness)
+        end
+    end)
+end
+
+-- Initialize strafe
+local StrafeFunction = function()
+    local LastStrafeTime = 0
+    local StrafeAngle = 0
+    
+    RunService.Heartbeat:Connect(function()
+        if Config.Strafe.Enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.Health > 0 then
+            -- Get or set target
+            if not Config.Strafe.Target or not Config.Strafe.Target.Character or not Config.Strafe.Target.Character:FindFirstChild("HumanoidRootPart") or not Config.Strafe.Target.Character:FindFirstChild("Humanoid") or Config.Strafe.Target.Character.Humanoid.Health <= 0 then
+                Config.Strafe.Target = Utility.GetClosestPlayer()
+            end
+            
+            -- If target exists, perform strafe
+            if Config.Strafe.Target and Config.Strafe.Target.Character and Config.Strafe.Target.Character:FindFirstChild("HumanoidRootPart") and Config.Strafe.Target.Character:FindFirstChild("Humanoid") and Config.Strafe.Target.Character.Humanoid.Health > 0 then
+                local TargetRootPart = Config.Strafe.Target.Character.HumanoidRootPart
+                local PlayerRootPart = LocalPlayer.Character.HumanoidRootPart
+                
+                local TargetPos = TargetRootPart.Position
+                local PlayerPos = PlayerRootPart.Position
+                
+                -- Calculate distance to target
+                local Distance = (PlayerPos - TargetPos).Magnitude
+                
+                -- Only strafe if within max distance
+                if Distance <= Config.Strafe.MaxDistance then
+                    -- Apply strafe method
+                    if Config.Strafe.Method == "Orbit" then
+                        -- Update strafe angle
+                        local DeltaTime = tick() - LastStrafeTime
+                        LastStrafeTime = tick()
+                        
+                        StrafeAngle = StrafeAngle + DeltaTime * (Config.Strafe.Speed / 10)
+                        
+                        -- Calculate new position
+                        local TargetOffset = Vector3.new(
+                            math.cos(StrafeAngle) * Config.Strafe.Distance,
+                            0,
+                            math.sin(StrafeAngle) * Config.Strafe.Distance
+                        )
+                        
+                        local NewPosition = TargetPos + TargetOffset
+                        
+                        -- Move character
+                        LocalPlayer.Character.Humanoid:MoveTo(NewPosition)
+                                    end
+                end
+            end
+        end
+    end)
+end
+
+-- Initialize ESP
+local ESPObjects = {}
+
+local ESPFunction = function()
+    -- Clear existing ESP
+    for _, Object in pairs(ESPObjects) do
+        for _, Drawing in pairs(Object) do
+            if Drawing and Drawing.Remove then
+                Drawing:Remove()
             end
         end
     end
-end)
-
--- ESP functionality
-local ESPObjects = {}
-
-local function CreateESP(Player)
-    if Player == LocalPlayer then return end
     
-    local ESP = {
-        Box = Drawing.new("Square"),
-        Name = Drawing.new("Text"),
-        Health = Drawing.new("Line"),
-        Tracer = Drawing.new("Line")
-    }
+    ESPObjects = {}
     
-    ESP.Box.Thickness = 1
-    ESP.Box.Filled = false
-    ESP.Box.Visible = false
-    ESP.Box.Color = Config.ESP.BoxColor
-    ESP.Box.Transparency = 1
-    
-    ESP.Name.Size = 14
-    ESP.Name.Center = true
-    ESP.Name.Outline = true
-    ESP.Name.Visible = false
-    ESP.Name.Color = Config.ESP.NameColor
-    ESP.Name.Transparency = 1
-    
-    ESP.Health.Thickness = 2
-    ESP.Health.Visible = false
-    ESP.Health.Color = Config.ESP.HealthColor
-    ESP.Health.Transparency = 1
-    
-    ESP.Tracer.Thickness = 1
-    ESP.Tracer.Visible = false
-    ESP.Tracer.Color = Config.ESP.TracerColor
-    ESP.Tracer.Transparency = 1
-    
-    ESPObjects[Player] = ESP
-end
-
-local function UpdateESP()
-    for Player, ESP in pairs(ESPObjects) do
-        if not Player or not Player.Character or not Player.Character:FindFirstChild("HumanoidRootPart") or not Player.Character:FindFirstChild("Humanoid") or not Config.ESP.Enabled then
-            ESP.Box.Visible = false
-            ESP.Name.Visible = false
-            ESP.Health.Visible = false
-            ESP.Tracer.Visible = false
-            continue
+    -- Create ESP for each player
+    for _, Player in pairs(Players:GetPlayers()) do
+        if Player ~= LocalPlayer then
+            ESPObjects[Player] = {
+                Box = Drawing.new("Square"),
+                BoxOutline = Drawing.new("Square"),
+                Name = Drawing.new("Text"),
+                Health = Drawing.new("Text"),
+                Tracer = Drawing.new("Line")
+            }
+            
+            -- Box Settings
+            ESPObjects[Player].BoxOutline.Thickness = 3
+            ESPObjects[Player].BoxOutline.Color = Color3.fromRGB(0, 0, 0)
+            ESPObjects[Player].BoxOutline.Filled = false
+            ESPObjects[Player].BoxOutline.Transparency = 1
+            
+            ESPObjects[Player].Box.Thickness = 1
+            ESPObjects[Player].Box.Color = Config.ESP.BoxColor
+            ESPObjects[Player].Box.Filled = false
+            ESPObjects[Player].Box.Transparency = 1
+            
+            -- Name Settings
+            ESPObjects[Player].Name.Size = 14
+            ESPObjects[Player].Name.Color = Config.ESP.NameColor
+            ESPObjects[Player].Name.Center = true
+            ESPObjects[Player].Name.Outline = true
+            
+            -- Health Settings
+            ESPObjects[Player].Health.Size = 14
+            ESPObjects[Player].Health.Color = Config.ESP.HealthColor
+            ESPObjects[Player].Health.Center = true
+            ESPObjects[Player].Health.Outline = true
+            
+            -- Tracer Settings
+            ESPObjects[Player].Tracer.Thickness = 1
+            ESPObjects[Player].Tracer.Color = Config.ESP.TracerColor
         end
-        
-        local Character = Player.Character
-        local HRP = Character.HumanoidRootPart
-        local Humanoid = Character.Humanoid
-        
-        local Vector, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
-        
-        if not OnScreen then
-            ESP.Box.Visible = false
-            ESP.Name.Visible = false
-            ESP.Health.Visible = false
-            ESP.Tracer.Visible = false
-            continue
-        end
-        
-        local Size = (Camera:WorldToViewportPoint(HRP.Position + Vector3.new(0, 3, 0)).Y - Camera:WorldToViewportPoint(HRP.Position - Vector3.new(0, 3, 0)).Y) / 2
-        local BoxSize = Vector2.new(Size * 1.5, Size * 3)
-        local BoxPosition = Vector2.new(Vector.X - Size * 1.5 / 2, Vector.Y - Size * 3 / 2)
-        
-        -- Update box
-        ESP.Box.Size = BoxSize
-        ESP.Box.Position = BoxPosition
-        ESP.Box.Visible = Config.ESP.BoxESP
-        ESP.Box.Color = Config.ESP.BoxColor
-        
-        -- Update name
-        ESP.Name.Text = Player.Name
-        ESP.Name.Position = Vector2.new(Vector.X, Vector.Y - Size * 3 / 2 - 15)
-        ESP.Name.Visible = Config.ESP.NameESP
-        ESP.Name.Color = Config.ESP.NameColor
-        
-        -- Update health
-        local Health = Humanoid.Health
-        local MaxHealth = Humanoid.MaxHealth
-        local HealthPercent = (Health / MaxHealth)
-        
-        ESP.Health.From = Vector2.new(BoxPosition.X - 5, BoxPosition.Y)
-        ESP.Health.To = Vector2.new(BoxPosition.X - 5, BoxPosition.Y + (BoxSize.Y * HealthPercent))
-        ESP.Health.Color = Color3.fromRGB(255 - 255 * HealthPercent, 255 * HealthPercent, 0)
-        ESP.Health.Visible = Config.ESP.HealthESP
-        
-        -- Update tracer
-        ESP.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-        ESP.Tracer.To = Vector2.new(Vector.X, Vector.Y)
-        ESP.Tracer.Visible = Config.ESP.TracerESP
-        ESP.Tracer.Color = Config.ESP.TracerColor
     end
-end
-
--- Create ESP for existing players
-for _, Player in pairs(Players:GetPlayers()) do
-    if Player ~= LocalPlayer then
-        CreateESP(Player)
-    end
-end
-
--- Create ESP for new players
-Players.PlayerAdded:Connect(function(Player)
-    CreateESP(Player)
-end)
-
--- Remove ESP for players who leave
-Players.PlayerRemoving:Connect(function(Player)
-    if ESPObjects[Player] then
-        for _, Object in pairs(ESPObjects[Player]) do
-            Object:Remove()
-        end
-        
-        ESPObjects[Player] = nil
-    end
-end)
-
--- Update ESP
-RunService.RenderStepped:Connect(UpdateESP)
-
--- Flying functionality
-local FlySpeed = Config.Movement.FlySpeed
-local Flying = false
-
-local function ActivateFly()
-    if Flying then return end
     
-    Flying = true
-    Config.Movement.Flying = true
-    
-    local Character = LocalPlayer.Character
-    local Humanoid = Character:FindFirstChild("Humanoid")
-    local HRP = Character:FindFirstChild("HumanoidRootPart")
-    
-    local BodyVelocity = Instance.new("BodyVelocity")
-    BodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    BodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    BodyVelocity.Name = "FlyVelocity"
-    BodyVelocity.Parent = HRP
-    
-    local BodyGyro = Instance.new("BodyGyro")
-    BodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-    BodyGyro.CFrame = HRP.CFrame
-    BodyGyro.Name = "FlyGyro"
-    BodyGyro.Parent = HRP
-    
-    Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-    
-    local Connection = RunService.RenderStepped:Connect(function()
-        if not Flying then
-            Connection:Disconnect()
-            return
+    -- Player Added event
+    Players.PlayerAdded:Connect(function(Player)
+        if Player ~= LocalPlayer then
+            ESPObjects[Player] = {
+                Box = Drawing.new("Square"),
+                BoxOutline = Drawing.new("Square"),
+                Name = Drawing.new("Text"),
+                Health = Drawing.new("Text"),
+                Tracer = Drawing.new("Line")
+            }
+            
+            -- Box Settings
+            ESPObjects[Player].BoxOutline.Thickness = 3
+            ESPObjects[Player].BoxOutline.Color = Color3.fromRGB(0, 0, 0)
+            ESPObjects[Player].BoxOutline.Filled = false
+            ESPObjects[Player].BoxOutline.Transparency = 1
+            
+            ESPObjects[Player].Box.Thickness = 1
+            ESPObjects[Player].Box.Color = Config.ESP.BoxColor
+            ESPObjects[Player].Box.Filled = false
+            ESPObjects[Player].Box.Transparency = 1
+            
+            -- Name Settings
+            ESPObjects[Player].Name.Size = 14
+            ESPObjects[Player].Name.Color = Config.ESP.NameColor
+            ESPObjects[Player].Name.Center = true
+            ESPObjects[Player].Name.Outline = true
+            
+            -- Health Settings
+            ESPObjects[Player].Health.Size = 14
+            ESPObjects[Player].Health.Color = Config.ESP.HealthColor
+            ESPObjects[Player].Health.Center = true
+            ESPObjects[Player].Health.Outline = true
+            
+            -- Tracer Settings
+            ESPObjects[Player].Tracer.Thickness = 1
+            ESPObjects[Player].Tracer.Color = Config.ESP.TracerColor
         end
-        
-        FlySpeed = Config.Movement.FlySpeed
-        
-        local Camera = workspace.CurrentCamera
-        local LookVector = Camera.CFrame.LookVector
-        local UpVector = Camera.CFrame.UpVector
-        
-        local MoveDirection = Vector3.new(0, 0, 0)
-        
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-            MoveDirection = MoveDirection + LookVector
-        end
-        
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-            MoveDirection = MoveDirection - LookVector
-        end
-        
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-            MoveDirection = MoveDirection - Camera.CFrame.RightVector
-        end
-        
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-            MoveDirection = MoveDirection + Camera.CFrame.RightVector
-        end
-        
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            MoveDirection = MoveDirection + UpVector
-        end
-        
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-            MoveDirection = MoveDirection - UpVector
-        end
-        
-        BodyVelocity.Velocity = MoveDirection.Unit * FlySpeed
-        BodyGyro.CFrame = Camera.CFrame
     end)
-end
-
-local function DeactivateFly()
-    if not Flying then return end
     
-    Flying = false
-    Config.Movement.Flying = false
+    -- Player Removing event
+    Players.PlayerRemoving:Connect(function(Player)
+        if ESPObjects[Player] then
+            for _, Drawing in pairs(ESPObjects[Player]) do
+                if Drawing.Remove then
+                    Drawing:Remove()
+                end
+            end
+            
+            ESPObjects[Player] = nil
+        end
+    end)
     
-    local Character = LocalPlayer.Character
-    local Humanoid = Character:FindFirstChild("Humanoid")
-    local HRP = Character:FindFirstChild("HumanoidRootPart")
-    
-    if HRP:FindFirstChild("FlyVelocity") then
-        HRP.FlyVelocity:Destroy()
-    end
-    
-    if HRP:FindFirstChild("FlyGyro") then
-        HRP.FlyGyro:Destroy()
-    end
-    
-    Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-end
-
--- Speed functionality
-local SpeedConnection = nil
-
-local function EnableSpeed()
-    if SpeedConnection then
-        SpeedConnection:Disconnect()
-    end
-    
-    SpeedConnection = RunService.RenderStepped:Connect(function()
-        if Config.Movement.SpeedEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.WalkSpeed = Config.Movement.Speed
+    -- Update ESP
+    RunService.RenderStepped:Connect(function()
+        for Player, Objects in pairs(ESPObjects) do
+            if Player and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") and Player.Character:FindFirstChild("Humanoid") and Player.Character.Humanoid.Health > 0 then
+                local RootPart = Player.Character.HumanoidRootPart
+                local RootPosition = RootPart.Position
+                local HumanoidRootPosition, OnScreen = Camera:WorldToViewportPoint(RootPosition)
+                
+                if OnScreen and Config.ESP.Enabled then
+                    local Distance = (Camera.CFrame.Position - RootPosition).Magnitude
+                    local Scale = 1 / (Distance / 10)
+                    
+                    -- Calculate ESP sizes based on distance
+                    local BoxSize = Vector2.new(2000 * Scale, 2500 * Scale)
+                    local BoxPosition = Vector2.new(HumanoidRootPosition.X - (BoxSize.X / 2), HumanoidRootPosition.Y - (BoxSize.Y / 2))
+                    
+                    -- Update Box ESP
+                    if Config.ESP.BoxESP then
+                        Objects.BoxOutline.Size = BoxSize
+                        Objects.BoxOutline.Position = BoxPosition
+                        Objects.BoxOutline.Visible = true
+                        
+                        Objects.Box.Size = BoxSize
+                        Objects.Box.Position = BoxPosition
+                        Objects.Box.Color = Config.ESP.BoxColor
+                        Objects.Box.Visible = true
+                    else
+                        Objects.BoxOutline.Visible = false
+                        Objects.Box.Visible = false
+                    end
+                    
+                    -- Update Name ESP
+                    if Config.ESP.NameESP then
+                        local DisplayName = Player.DisplayName
+                        local Name = Player.Name
+                        
+                        Objects.Name.Text = Config.Target.HideDisplayName and Name or DisplayName
+                        Objects.Name.Position = Vector2.new(HumanoidRootPosition.X, BoxPosition.Y - 16)
+                        Objects.Name.Color = Config.ESP.NameColor
+                        Objects.Name.Visible = true
+                    else
+                        Objects.Name.Visible = false
+                    end
+                    
+                    -- Update Health ESP
+                    if Config.ESP.HealthESP then
+                        local Health = Player.Character.Humanoid.Health
+                        local MaxHealth = Player.Character.Humanoid.MaxHealth
+                        local HealthPercentage = math.floor((Health / MaxHealth) * 100)
+                        
+                        Objects.Health.Text = tostring(HealthPercentage) .. "%"
+                        Objects.Health.Position = Vector2.new(BoxPosition.X + BoxSize.X + 5, BoxPosition.Y)
+                        Objects.Health.Color = Color3.fromRGB(
+                            255 - math.floor(Health / MaxHealth * 255),
+                            math.floor(Health / MaxHealth * 255),
+                            0
+                        )
+                        Objects.Health.Visible = true
+                    else
+                        Objects.Health.Visible = false
+                    end
+                    
+                    -- Update Tracer ESP
+                    if Config.ESP.TracerESP then
+                        Objects.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        Objects.Tracer.To = Vector2.new(HumanoidRootPosition.X, HumanoidRootPosition.Y)
+                        Objects.Tracer.Color = Config.ESP.TracerColor
+                        Objects.Tracer.Visible = true
+                    else
+                        Objects.Tracer.Visible = false
+                    end
+                else
+                    -- Hide ESP when off screen
+                    Objects.BoxOutline.Visible = false
+                    Objects.Box.Visible = false
+                    Objects.Name.Visible = false
+                    Objects.Health.Visible = false
+                    Objects.Tracer.Visible = false
+                end
+            else
+                -- Hide ESP when player not valid
+                Objects.BoxOutline.Visible = false
+                Objects.Box.Visible = false
+                Objects.Name.Visible = false
+                Objects.Health.Visible = false
+                Objects.Tracer.Visible = false
+            end
         end
     end)
 end
 
-local function DisableSpeed()
-    if SpeedConnection then
-        SpeedConnection:Disconnect()
-        SpeedConnection = nil
-    end
+-- Initialize movement features
+local MovementFunction = function()
+    local FlyPart
     
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = 16
-    end
-end
-
--- Create the GUI
-GUI.Create()
-
--- Main loop
-RunService.RenderStepped:Connect(function()
-    -- Update flying
-    if Config.Movement.Flying and not Flying then
-        ActivateFly()
-    elseif not Config.Movement.Flying and Flying then
-        DeactivateFly()
-    end
-    
-    -- Update speed
-    if Config.Movement.SpeedEnabled and not SpeedConnection then
-        EnableSpeed()
-    elseif not Config.Movement.SpeedEnabled and SpeedConnection then
-        DisableSpeed()
-    end
-    
-    -- Update target display
-    local TargetFeatureSection = CoreGui:FindFirstChild(Config.UIName).MainFrame.Content.MainContent:FindFirstChild("Target FeatureSection")
-    if TargetFeatureSection and TargetFeatureSection.Content:FindFirstChild("TargetLabel") then
-        TargetFeatureSection.Content.TargetLabel.Text = "Target: " .. (Config.Camlock.Target and Config.Camlock.Target.Name or "None")
-    end
-end)
-
--- Notification
-local function CreateNotification(Title, Text, Duration)
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "Notification"
-    ScreenGui.Parent = CoreGui
-    
-    local NotificationFrame = Instance.new("Frame")
-    NotificationFrame.Name = "NotificationFrame"
-    NotificationFrame.Size = UDim2.new(0, 250, 0, 70)
-    NotificationFrame.Position = UDim2.new(1, -270, 1, -90)
-    NotificationFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    NotificationFrame.BorderSizePixel = 0
-    NotificationFrame.Parent = ScreenGui
-    
-    local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Name = "Title"
-    TitleLabel.Size = UDim2.new(1, 0, 0, 30)
-    TitleLabel.BackgroundColor3 = Config.UITheme.Accent
-    TitleLabel.BorderSizePixel = 0
-    TitleLabel.Text = Title
-    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TitleLabel.TextSize = 16
-    TitleLabel.Font = Enum.Font.SourceSansBold
-    TitleLabel.Parent = NotificationFrame
-    
-    local TextLabel = Instance.new("TextLabel")
-    TextLabel.Name = "Text"
-    TextLabel.Size = UDim2.new(1, 0, 1, -30)
-    TextLabel.Position = UDim2.new(0, 0, 0, 30)
-    TextLabel.BackgroundTransparency = 1
-    TextLabel.Text = Text
-    TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TextLabel.TextSize = 14
-    TextLabel.Font = Enum.Font.SourceSans
-    TextLabel.Parent = NotificationFrame
-    
-    local OriginalPosition = NotificationFrame.Position
-    NotificationFrame.Position = UDim2.new(1, 0, 1, -90)
-    
-    local TweenIn = TweenService:Create(NotificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = OriginalPosition})
-    TweenIn:Play()
-    
-    task.delay(Duration or 5, function()
-        local TweenOut = TweenService:Create(NotificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, 0, 1, -90)})
-        TweenOut:Play()
+    RunService.Heartbeat:Connect(function()
+        -- Walkspeed
+        if Config.Movement.WalkspeedEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = Config.Movement.Walkspeed
+        end
         
-        TweenOut.Completed:Connect(function()
-            ScreenGui:Destroy()
-        end)
+        -- Fly
+        if Config.Movement.Flying then
+            if not FlyPart and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                FlyPart = Instance.new("BodyVelocity")
+                FlyPart.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                FlyPart.Velocity = Vector3.new(0, 0, 0)
+                FlyPart.Parent = LocalPlayer.Character.HumanoidRootPart
+            end
+            
+            if FlyPart then
+                local Direction = Vector3.new(0, 0, 0)
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                    Direction = Direction + Camera.CFrame.LookVector
+                end
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                    Direction = Direction - Camera.CFrame.LookVector
+                end
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                    Direction = Direction - Camera.CFrame.RightVector
+                end
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                    Direction = Direction + Camera.CFrame.RightVector
+                end
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                    Direction = Direction + Vector3.new(0, 1, 0)
+                end
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                    Direction = Direction - Vector3.new(0, 1, 0)
+                end
+                
+                if Direction.Magnitude > 0 then
+                    Direction = Direction.unit
+                end
+                
+                FlyPart.Velocity = Direction * Config.Movement.FlySpeed
+            end
+        else
+            if FlyPart then
+                FlyPart:Destroy()
+                FlyPart = nil
+            end
+        end
+    end)
+    
+    UserInputService.InputBegan:Connect(function(Input, Processed)
+        if not Processed and Input.KeyCode == Config.Movement.FlyKey then
+            Config.Movement.Flying = not Config.Movement.Flying
+            
+            if not Config.Movement.Flying and FlyPart then
+                FlyPart:Destroy()
+                FlyPart = nil
+            end
+        end
     end)
 end
 
--- Script loaded notification
-CreateNotification("Mystic | Da Hood", "Script has been loaded successfully!", 5)
+-- Initialize Kill Aura
+local KillAuraFunction = function()
+    local LastAttackTime = 0
+    
+    RunService.Heartbeat:Connect(function()
+        if Config.KillAura.Enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and tick() - LastAttackTime > 0.2 then
+            for _, Player in pairs(Players:GetPlayers()) do
+                if Player ~= LocalPlayer and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") and Player.Character:FindFirstChild("Humanoid") and Player.Character.Humanoid.Health > 0 then
+                    if Config.KillAura.IgnoreKnocked and Utility.IsPlayerKnocked(Player) then
+                        continue
+                    end
+                    
+                    local Distance = (LocalPlayer.Character.HumanoidRootPart.Position - Player.Character.HumanoidRootPart.Position).Magnitude
+                    
+                    if Distance <= Config.KillAura.Range then
+                        -- Attempt to attack the player
+                        -- This is game-specific and would need to be implemented based on Da Hood's combat system
+                        LastAttackTime = tick()
+                        break
+                    end
+                end
+            end
+        end
+    end)
+end
 
--- Return configuration for external access
-return Config
+-- Initialize silent aim
+local SilentAimFunction = function()
+    -- This would need to hook into the game's shooting mechanics
+    -- Implementation would be highly game-specific
+end
+
+-- Initialize desync
+local DesyncFunction = function()
+    local OriginalPosition
+    local DesyncPart
+    
+    RunService.Heartbeat:Connect(function()
+        if Config.Desync.Enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            if not OriginalPosition then
+                OriginalPosition = LocalPlayer.Character.HumanoidRootPart.CFrame
+            end
+            
+            -- Create visible part for visualization if enabled
+            if Config.Desync.Visualize then
+                if not DesyncPart then
+                    DesyncPart = Instance.new("Part")
+                    DesyncPart.Size = Vector3.new(2, 2, 1)
+                    DesyncPart.Anchored = true
+                    DesyncPart.CanCollide = false
+                    DesyncPart.Transparency = 0.5
+                    DesyncPart.Color = Color3.fromRGB(255, 0, 0)
+                    DesyncPart.Parent = workspace
+                end
+            elseif DesyncPart then
+                DesyncPart:Destroy()
+                DesyncPart = nil
+            end
+            
+            -- Apply desync method
+            local DesyncPosition = OriginalPosition
+            
+            if Config.Desync.Method == "Underground" then
+                DesyncPosition = OriginalPosition * CFrame.new(0, -10, 0)
+            elseif Config.Desync.Method == "Sky" then
+                DesyncPosition = OriginalPosition * CFrame.new(0, 100, 0)
+            end
+            
+            -- Update desync visualization
+            if DesyncPart then
+                DesyncPart.CFrame = DesyncPosition
+            end
+            
+            -- Apply desync (actual implementation would depend on Da Hood's network system)
+        else
+            OriginalPosition = nil
+            
+            if DesyncPart then
+                DesyncPart:Destroy()
+                DesyncPart = nil
+            end
+        end
+    end)
+end
+
+-- Initialize hit features
+local HitFeaturesFunction = function()
+    -- This would need to hook into the game's hit detection
+    -- Implementation would be highly game-specific
+end
+
+-- Initialize neck grabs
+local NeckGrabsFunction = function()
+    -- This would be a Da Hood specific feature
+    -- Implementation would require understanding how the neck grab system works
+end
+
+-- Initialize the script
+local function Initialize()
+    print("Initializing ghst.lol | Da Hood")
+    
+    -- Create the GUI
+    GUI.Create()
+    
+    -- Initialize features
+    CamlockFunction()
+    StrafeFunction()
+    ESPFunction()
+    MovementFunction()
+    KillAuraFunction()
+    SilentAimFunction()
+    DesyncFunction()
+    HitFeaturesFunction()
+    NeckGrabsFunction()
+    
+    -- Add GUI toggle
+    UserInputService.InputBegan:Connect(function(Input, Processed)
+        if not Processed and Input.KeyCode == Enum.KeyCode.Insert then
+            for _, Instance in pairs(CoreGui:GetChildren()) do
+                if Instance.Name == Config.UIName then
+                    Instance.Enabled = not Instance.Enabled
+                end
+            end
+        end
+    end)
+    
+    -- Setup UI toggle functionality
+    local MainGUI = CoreGui:FindFirstChild(Config.UIName)
+    
+    UserInputService.InputBegan:Connect(function(input, processed)
+        if not processed and input.KeyCode == Config.UIToggleKey then
+            Config.UIVisible = not Config.UIVisible
+            if MainGUI then
+                MainGUI.Enabled = Config.UIVisible
+            end
+        end
+    end)
+    
+    print("Initialized ghst.lol | Da Hood")
+end
+
+-- Run the script
+Initialize()
