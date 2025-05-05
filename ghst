@@ -1,327 +1,842 @@
+-- Created by irokzzz
+
+-- Required services
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local GuiService = game:GetService("GuiService")
+local HttpService = game:GetService("HttpService")
 
--- Get the local player (the player running this script)
+-- Player and camera references
 local localPlayer = Players.LocalPlayer
-local mouse = localPlayer:GetMouse()
 local camera = workspace.CurrentCamera
 
--- Variables to track our targeting state
-local isTargeting = false          -- Whether targeting is currently active
-local targetPlayer = nil           -- The player we're targeting
-local maxDistance = 500            -- Maximum distance to find targets (in studs)
-local smoothness = 0.5             -- Default smoothness (0.1 to 1)
-local highlight = nil              -- Highlight effect for the targeted player
-local guiVisible = true            -- Whether the GUI is currently visible
-local connections = {}             -- Store all connections for cleanup
-local titleBarConnections = {}     -- For the title bar drag connections
+-- Settings
+local maxDistance = 200  -- Maximum distance to target players
+local smoothness = 0.5   -- Initial smoothness for camera movements (1 = instant, 0 = no movement)
+local flySpeed = 100     -- Initial flying speed (max 500)
 
--- Create a GUI for the camera lock settings
+-- Default key bindings
+local camlockKey = Enum.KeyCode.C  -- Default key to toggle camera lock
+local flyKey = Enum.KeyCode.X      -- Default key to toggle fly
+
+-- Key names for display
+local keyNames = {
+    [Enum.KeyCode.C] = "C",
+    [Enum.KeyCode.X] = "X",
+    [Enum.KeyCode.F] = "F",
+    -- Add more keys as needed
+}
+
+-- Variables for tracking state
+local isTargeting = false  -- Is camera lock active?
+local targetPlayer = nil   -- Which player we're targeting
+local highlight = nil      -- Highlight effect on target
+local guiVisible = true    -- Is our GUI visible?
+local isFlying = false     -- Is fly mode active?
+local flyKeys = {          -- Track which keys are being pressed for flying
+    W = false,
+    A = false,
+    S = false,
+    D = false,
+    Space = false,
+    LeftShift = false
+}
+local connections = {}     -- Store all connections to disconnect them later
+
+-- GUI elements
+local guiElements = {}
+
+-- Function to create the GUI
 local function createGui()
-    -- Create our main ScreenGui container
-    local ghstGui = Instance.new("ScreenGui")
-    ghstGui.Name = "ghst.lol"
-    ghstGui.ResetOnSpawn = false
+    -- Create a ScreenGui to hold everything
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "ghst.lol_GUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
-    -- Create the main frame
+    -- Create the main frame with rounded corners
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 200, 0, 100)
-    mainFrame.Position = UDim2.new(0.85, 0, 0.1, 0)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    mainFrame.Size = UDim2.new(0, 280, 0, 320)
+    mainFrame.Position = UDim2.new(0.5, -140, 0.5, -160) -- Centered on screen
+    mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Pure black background
     mainFrame.BorderSizePixel = 0
-    mainFrame.Active = false  -- Main frame should not be draggable
-    mainFrame.Draggable = false
-    mainFrame.Parent = ghstGui
+    mainFrame.Active = true
+    mainFrame.Draggable = false  -- We'll handle dragging manually
+    mainFrame.ClipsDescendants = true
+    mainFrame.ZIndex = 9999 -- Ensure it's on top of everything
+    mainFrame.Parent = screenGui
     
-    -- Add a title bar
+    -- Add corner radius to main frame
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 10)
+    mainCorner.Parent = mainFrame
+    
+    -- Add drop shadow effect
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    shadow.BackgroundTransparency = 1
+    shadow.Position = UDim2.new(0.5, 0, 0.5, 4)
+    shadow.Size = UDim2.new(1, 20, 1, 20)
+    shadow.ZIndex = -1
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.6
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.Parent = mainFrame
+    
+    -- Create a subtle gradient background for the main frame
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 10, 10)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+    })
+    gradient.Rotation = 45
+    gradient.Parent = mainFrame
+    
+    -- Create a title bar with gradient
     local titleBar = Instance.new("Frame")
     titleBar.Name = "TitleBar"
-    titleBar.Size = UDim2.new(1, 0, 0, 30)
-    titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    titleBar.Size = UDim2.new(1, 0, 0, 40)
+    titleBar.Position = UDim2.new(0, 0, 0, 0)
+    titleBar.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
     titleBar.BorderSizePixel = 0
+    titleBar.ZIndex = 2
     titleBar.Parent = mainFrame
     
+    -- Add corner radius to title bar (only top corners)
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 10)
+    titleCorner.Parent = titleBar
+    
+    -- Add a gradient to the title bar
+    local titleGradient = Instance.new("UIGradient")
+    titleGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 20)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 5))
+    })
+    titleGradient.Rotation = 90
+    titleGradient.Parent = titleBar
+    
+    -- Fix the bottom corners of title bar
+    local bottomFrame = Instance.new("Frame")
+    bottomFrame.Size = UDim2.new(1, 0, 0, 10)
+    bottomFrame.Position = UDim2.new(0, 0, 1, -10)
+    bottomFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    bottomFrame.BorderSizePixel = 0
+    bottomFrame.ZIndex = 2
+    bottomFrame.Parent = titleBar
+    
+    -- Apply same gradient to bottom frame
+    local bottomGradient = titleGradient:Clone()
+    bottomGradient.Parent = bottomFrame
+    
     -- Make the title bar draggable
-    local isDraggingGui = false
-    local dragOffset = Vector2.new(0, 0)
+    local dragging = false
+    local dragInput = nil
+    local dragStart = nil
+    local startPos = nil
     
-    local dragStart = titleBar.InputBegan:Connect(function(input)
+    titleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDraggingGui = true
-            local mousePos = UserInputService:GetMouseLocation()
-            dragOffset = UDim2.new(0, mousePos.X, 0, mousePos.Y) - mainFrame.Position
+            dragging = true
+            dragStart = input.Position
+            startPos = mainFrame.Position
         end
     end)
     
-    local dragEnd = titleBar.InputEnded:Connect(function(input)
+    titleBar.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDraggingGui = false
+            dragging = false
         end
     end)
     
-    local dragChange = UserInputService.InputChanged:Connect(function(input)
-        if isDraggingGui and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local mousePos = UserInputService:GetMouseLocation()
-            mainFrame.Position = UDim2.new(0, mousePos.X, 0, mousePos.Y) - dragOffset
+    UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
         end
     end)
     
-    -- Store the connections for cleanup
-    table.insert(titleBarConnections, dragStart)
-    table.insert(titleBarConnections, dragEnd)
-    table.insert(titleBarConnections, dragChange)
+    local dragConnection = RunService.RenderStepped:Connect(function()
+        if dragging and dragInput and dragStart then
+            local delta = dragInput.Position - dragStart
+            mainFrame.Position = UDim2.new(
+                startPos.X.Scale, 
+                startPos.X.Offset + delta.X, 
+                startPos.Y.Scale, 
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
     
-    -- Add title text
+    -- Store the connection for cleanup
+    table.insert(connections, dragConnection)
+    
+    -- Title with logo and text
+    local logoContainer = Instance.new("Frame")
+    logoContainer.Name = "LogoContainer"
+    logoContainer.Size = UDim2.new(0, 36, 0, 36)
+    logoContainer.Position = UDim2.new(0, 10, 0, 2)
+    logoContainer.BackgroundTransparency = 1
+    logoContainer.ZIndex = 3
+    logoContainer.Parent = titleBar
+    
+    -- Create a skull logo from image provided by user
+    local skullImageLogo = Instance.new("ImageLabel")
+    skullImageLogo.Name = "SkullImageLogo"
+    skullImageLogo.Size = UDim2.new(0, 30, 0, 30) -- Size to fit the logo container
+    skullImageLogo.Position = UDim2.new(0.5, -15, 0.5, -15) -- Center in the container
+    skullImageLogo.BackgroundTransparency = 1
+    skullImageLogo.Image = "rbxassetid://15848018614" -- Detailed skull image (Roblox asset ID)
+    skullImageLogo.ImageColor3 = Color3.fromRGB(255, 255, 255) -- Ensure it's white
+    skullImageLogo.ScaleType = Enum.ScaleType.Fit -- Scale to fit while maintaining aspect ratio
+    skullImageLogo.ZIndex = 3
+    skullImageLogo.Parent = logoContainer
+    
+    -- Title text
     local titleText = Instance.new("TextLabel")
     titleText.Name = "TitleText"
-    titleText.Size = UDim2.new(1, -30, 1, 0)  -- Make room for the X button
+    titleText.Size = UDim2.new(1, -90, 1, 0)
+    titleText.Position = UDim2.new(0, 55, 0, 0)
     titleText.BackgroundTransparency = 1
     titleText.Text = "ghst.lol"
-    titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
     titleText.Font = Enum.Font.GothamBold
-    titleText.TextSize = 16
+    titleText.TextSize = 18
+    titleText.TextColor3 = Color3.fromRGB(250, 250, 250)
+    titleText.TextXAlignment = Enum.TextXAlignment.Left
+    titleText.ZIndex = 3
     titleText.Parent = titleBar
     
-    -- Create a TextButton with just an X symbol
-    local unloadButton = Instance.new("TextButton")
-    unloadButton.Name = "UnloadButton"
-    unloadButton.Size = UDim2.new(0, 30, 0, 30)
-    unloadButton.Position = UDim2.new(1, -30, 0, 0)
-    unloadButton.BackgroundTransparency = 1 -- Make background transparent
-    unloadButton.Text = "✕"  -- X symbol
-    unloadButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    unloadButton.Font = Enum.Font.GothamBold
-    unloadButton.TextSize = 16
-    unloadButton.AutoButtonColor = false
-    unloadButton.Parent = titleBar
+    -- Subtitle text 
+    local subtitleText = Instance.new("TextLabel")
+    subtitleText.Name = "SubtitleText"
+    subtitleText.Size = UDim2.new(0, 100, 0, 20)
+    subtitleText.Position = UDim2.new(0, 55, 0, 20)
+    subtitleText.BackgroundTransparency = 1
+    subtitleText.Text = "Camera Lock & Fly"
+    subtitleText.Font = Enum.Font.Gotham
+    subtitleText.TextSize = 12
+    subtitleText.TextColor3 = Color3.fromRGB(180, 180, 190)
+    subtitleText.TextXAlignment = Enum.TextXAlignment.Left
+    subtitleText.ZIndex = 3
+    subtitleText.Parent = titleBar
     
-    -- Hover effect for the unload button
-    unloadButton.MouseEnter:Connect(function()
-        unloadButton.TextColor3 = Color3.fromRGB(255, 0, 0)  -- Red when hovering
+    -- Close button (X)
+    local closeButton = Instance.new("TextButton")
+    closeButton.Name = "CloseButton"
+    closeButton.Size = UDim2.new(0, 30, 0, 30)
+    closeButton.Position = UDim2.new(1, -35, 0, 5)
+    closeButton.BackgroundTransparency = 1
+    closeButton.Text = "✕"
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.TextSize = 20
+    closeButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+    closeButton.ZIndex = 3
+    closeButton.Parent = titleBar
+    
+    -- Add hover effect to close button
+    closeButton.MouseEnter:Connect(function()
+        closeButton.TextColor3 = Color3.fromRGB(255, 50, 50)
     end)
     
-    unloadButton.MouseLeave:Connect(function()
-        unloadButton.TextColor3 = Color3.fromRGB(255, 255, 255)  -- White when not hovering
+    closeButton.MouseLeave:Connect(function()
+        closeButton.TextColor3 = Color3.fromRGB(255, 100, 100)
     end)
     
-    -- Status text (ON/OFF)
+    -- Create a divider under the title bar
+    local divider = Instance.new("Frame")
+    divider.Name = "Divider"
+    divider.Size = UDim2.new(1, -20, 0, 2)
+    divider.Position = UDim2.new(0, 10, 0, 40)
+    divider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    divider.BorderSizePixel = 0
+    divider.Transparency = 0.5
+    divider.ZIndex = 2
+    divider.Parent = mainFrame
+    
+    local dividerGradient = Instance.new("UIGradient")
+    dividerGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 70, 0)),
+        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(80, 80, 100)),
+        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(80, 80, 100)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 60, 70, 0))
+    })
+    dividerGradient.Parent = divider
+    
+    -- The main GUI content with padding
+    local contentContainer = Instance.new("Frame")
+    contentContainer.Name = "ContentContainer"
+    contentContainer.Size = UDim2.new(1, 0, 1, -45)
+    contentContainer.Position = UDim2.new(0, 0, 0, 45)
+    contentContainer.BackgroundTransparency = 1
+    contentContainer.Parent = mainFrame
+    
+    -- Add padding to content
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, 15)
+    padding.PaddingRight = UDim.new(0, 15)
+    padding.PaddingTop = UDim.new(0, 15)
+    padding.PaddingBottom = UDim.new(0, 10)
+    padding.Parent = contentContainer
+    
+    -- =============== CAMERA LOCK SECTION WITH SLIDER ===============
+    local camlockSection = Instance.new("Frame")
+    camlockSection.Name = "CamlockSection"
+    camlockSection.Size = UDim2.new(1, 0, 0, 110) -- Taller to fit smoothness slider
+    camlockSection.Position = UDim2.new(0, 0, 0, 0)
+    camlockSection.BackgroundTransparency = 1
+    camlockSection.Parent = contentContainer
+    
+    -- Camera Lock section title
+    local camlockTitle = Instance.new("TextLabel")
+    camlockTitle.Name = "SectionTitle"
+    camlockTitle.Size = UDim2.new(1, 0, 0, 20)
+    camlockTitle.BackgroundTransparency = 1
+    camlockTitle.Text = "CAMERA LOCK"
+    camlockTitle.Font = Enum.Font.GothamBold
+    camlockTitle.TextSize = 12
+    camlockTitle.TextColor3 = Color3.fromRGB(255, 255, 255) -- Pure white
+    camlockTitle.TextXAlignment = Enum.TextXAlignment.Left
+    camlockTitle.Parent = camlockSection
+    
+    -- Camera Lock Status container
+    local statusContainer = Instance.new("Frame")
+    statusContainer.Name = "StatusContainer"
+    statusContainer.Size = UDim2.new(1, 0, 0, 30)
+    statusContainer.Position = UDim2.new(0, 0, 0, 20)
+    statusContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 35) -- Darker background
+    statusContainer.BorderSizePixel = 0
+    statusContainer.Parent = camlockSection
+    
+    -- Round the corners
+    local statusCorner = Instance.new("UICorner")
+    statusCorner.CornerRadius = UDim.new(0, 6)
+    statusCorner.Parent = statusContainer
+    
+    -- Status text for camera lock
     local statusText = Instance.new("TextLabel")
     statusText.Name = "StatusText"
-    statusText.Size = UDim2.new(1, 0, 0, 20)
-    statusText.Position = UDim2.new(0, 0, 0, 35)
+    statusText.Size = UDim2.new(0.65, 0, 1, 0)
+    statusText.Position = UDim2.new(0.03, 0, 0, 0)
     statusText.BackgroundTransparency = 1
-    statusText.Text = "Status: OFF (Press C to toggle)"
-    statusText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    statusText.Text = "OFF (Press "..keyNames[camlockKey]..")"
     statusText.Font = Enum.Font.Gotham
-    statusText.TextSize = 14
-    statusText.Parent = mainFrame
+    statusText.TextSize = 13
+    statusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statusText.TextXAlignment = Enum.TextXAlignment.Left
+    statusText.Parent = statusContainer
     
-    -- Smoothness slider text
-    local smoothnessText = Instance.new("TextLabel")
-    smoothnessText.Name = "SmoothnessText"
-    smoothnessText.Size = UDim2.new(1, 0, 0, 20)
-    smoothnessText.Position = UDim2.new(0, 0, 0, 55)
-    smoothnessText.BackgroundTransparency = 1
-    smoothnessText.Text = "Smoothness: 0.5"
-    smoothnessText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    smoothnessText.Font = Enum.Font.Gotham
-    smoothnessText.TextSize = 14
-    smoothnessText.Parent = mainFrame
+    -- Status indicator (circle)
+    local statusIndicator = Instance.new("Frame")
+    statusIndicator.Name = "StatusIndicator"
+    statusIndicator.Size = UDim2.new(0, 10, 0, 10)
+    statusIndicator.Position = UDim2.new(0.53, 0, 0.5, -5)
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+    statusIndicator.BorderSizePixel = 0
+    statusIndicator.Parent = statusContainer
     
-    -- Smoothness slider
+    -- Make the indicator circular
+    local indicatorCorner = Instance.new("UICorner")
+    indicatorCorner.CornerRadius = UDim.new(1, 0)
+    indicatorCorner.Parent = statusIndicator
+    
+    -- Change camlock key button with gradient
+    local changeCamlockKeyButton = Instance.new("TextButton")
+    changeCamlockKeyButton.Name = "ChangeCamlockKey"
+    changeCamlockKeyButton.Size = UDim2.new(0.25, 0, 0, 26)
+    changeCamlockKeyButton.Position = UDim2.new(0.72, 0, 0, 2)
+    changeCamlockKeyButton.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    changeCamlockKeyButton.BorderSizePixel = 0
+    changeCamlockKeyButton.Text = "Change"
+    changeCamlockKeyButton.Font = Enum.Font.GothamSemibold
+    changeCamlockKeyButton.TextSize = 12
+    changeCamlockKeyButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+    changeCamlockKeyButton.Parent = statusContainer
+    
+    -- Round button corners
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0, 6)
+    buttonCorner.Parent = changeCamlockKeyButton
+    
+    -- Button gradient
+    local buttonGradient = Instance.new("UIGradient")
+    buttonGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 70)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(45, 45, 55))
+    })
+    buttonGradient.Rotation = 90
+    buttonGradient.Parent = changeCamlockKeyButton
+    
+    -- Add hover effect to button
+    changeCamlockKeyButton.MouseEnter:Connect(function()
+        changeCamlockKeyButton.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
+    end)
+    
+    changeCamlockKeyButton.MouseLeave:Connect(function()
+        changeCamlockKeyButton.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    end)
+    
+    -- Camera Lock Smoothness label directly under the status
+    local smoothnessLabel = Instance.new("TextLabel")
+    smoothnessLabel.Name = "SmoothnessLabel"
+    smoothnessLabel.Size = UDim2.new(0.7, 0, 0, 20)
+    smoothnessLabel.Position = UDim2.new(0, 0, 0, 60) -- Position below status container
+    smoothnessLabel.BackgroundTransparency = 1
+    smoothnessLabel.Text = "SMOOTHNESS"
+    smoothnessLabel.Font = Enum.Font.GothamBold
+    smoothnessLabel.TextSize = 12
+    smoothnessLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- Pure white
+    smoothnessLabel.TextXAlignment = Enum.TextXAlignment.Left
+    smoothnessLabel.Parent = camlockSection
+    
+    -- Camera Lock Smoothness value
+    local smoothnessValue = Instance.new("TextLabel")
+    smoothnessValue.Name = "SmoothnessValue"
+    smoothnessValue.Size = UDim2.new(0.3, 0, 0, 20)
+    smoothnessValue.Position = UDim2.new(0.7, 0, 0, 60) -- Aligned with smoothness label
+    smoothnessValue.BackgroundTransparency = 1
+    smoothnessValue.Text = tostring(smoothness)
+    smoothnessValue.Font = Enum.Font.GothamSemibold
+    smoothnessValue.TextSize = 12
+    smoothnessValue.TextColor3 = Color3.fromRGB(200, 200, 200)
+    smoothnessValue.TextXAlignment = Enum.TextXAlignment.Right
+    smoothnessValue.Parent = camlockSection
+    
+    -- Camera Lock Smoothness slider background
+    local smoothnessSliderBg = Instance.new("Frame")
+    smoothnessSliderBg.Name = "SmoothnessSliderBg"
+    smoothnessSliderBg.Size = UDim2.new(1, 0, 0, 20)
+    smoothnessSliderBg.Position = UDim2.new(0, 0, 0, 85) -- Below smoothness label
+    smoothnessSliderBg.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    smoothnessSliderBg.BorderSizePixel = 0
+    smoothnessSliderBg.Parent = camlockSection
+    
+    -- Round corners of slider background
+    local smoothnessBgCorner = Instance.new("UICorner")
+    smoothnessBgCorner.CornerRadius = UDim.new(0, 6)
+    smoothnessBgCorner.Parent = smoothnessSliderBg
+    
+    -- Camera Lock Smoothness slider
     local smoothnessSlider = Instance.new("Frame")
     smoothnessSlider.Name = "SmoothnessSlider"
-    smoothnessSlider.Size = UDim2.new(0.8, 0, 0, 5)
-    smoothnessSlider.Position = UDim2.new(0.1, 0, 0, 80)
-    smoothnessSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    smoothnessSlider.Size = UDim2.new(0.94, 0, 0, 4)
+    smoothnessSlider.Position = UDim2.new(0.03, 0, 0.5, -2) -- Center in background
+    smoothnessSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
     smoothnessSlider.BorderSizePixel = 0
-    smoothnessSlider.Parent = mainFrame
+    smoothnessSlider.Parent = smoothnessSliderBg
     
-    -- Slider knob
-    local sliderKnob = Instance.new("Frame")
-    sliderKnob.Name = "SliderKnob"
-    sliderKnob.Size = UDim2.new(0, 10, 0, 15)
-    sliderKnob.Position = UDim2.new(smoothness, -5, 0, -5)
-    sliderKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    sliderKnob.BorderSizePixel = 0
-    sliderKnob.Parent = smoothnessSlider
+    -- Round corners of smoothness slider
+    local smoothnessSliderCorner = Instance.new("UICorner")
+    smoothnessSliderCorner.CornerRadius = UDim.new(0, 2)
+    smoothnessSliderCorner.Parent = smoothnessSlider
     
-    -- Make the slider functional
-    local isDragging = false
-    local sliderConnections = {}
+    -- Camera Lock Smoothness progress
+    local smoothnessProgress = Instance.new("Frame")
+    smoothnessProgress.Name = "Progress"
+    smoothnessProgress.Size = UDim2.new(smoothness, 0, 1, 0) -- Based on current smoothness
+    smoothnessProgress.BackgroundColor3 = Color3.fromRGB(240, 30, 60)
+    smoothnessProgress.BorderSizePixel = 0
+    smoothnessProgress.Parent = smoothnessSlider
     
-    -- Create a hitbox for better mouse detection
-    local sliderHitbox = Instance.new("TextButton")
-    sliderHitbox.Name = "SliderHitbox"
-    sliderHitbox.Size = UDim2.new(0, 20, 0, 25)  -- Larger than the knob for easier clicking
-    sliderHitbox.Position = UDim2.new(smoothness, -10, 0, -10)
-    sliderHitbox.BackgroundTransparency = 1  -- Make it invisible
-    sliderHitbox.Text = ""
-    sliderHitbox.AutoButtonColor = false
-    sliderHitbox.Parent = smoothnessSlider
+    -- Round corners of progress bar
+    local smoothnessProgressCorner = Instance.new("UICorner")
+    smoothnessProgressCorner.CornerRadius = UDim.new(0, 2)
+    smoothnessProgressCorner.Parent = smoothnessProgress
     
-    -- Connect events to the hitbox instead of the knob
-    sliderHitbox.MouseButton1Down:Connect(function()
-        isDragging = true
-    end)
+    -- Camera Lock Smoothness knob
+    local smoothnessKnob = Instance.new("Frame")
+    smoothnessKnob.Name = "Knob"
+    smoothnessKnob.Size = UDim2.new(0, 16, 0, 16)
+    smoothnessKnob.Position = UDim2.new(smoothness, -8, 0.5, -8) -- Position based on current smoothness
+    smoothnessKnob.BackgroundColor3 = Color3.fromRGB(240, 240, 250)
+    smoothnessKnob.BorderSizePixel = 0
+    smoothnessKnob.ZIndex = 2
+    smoothnessKnob.Parent = smoothnessSlider
     
-    -- Also handle directly clicking on the slider bar
-    smoothnessSlider.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            -- Get mouse position relative to slider
-            local mousePos = input.Position
-            local sliderPos = smoothnessSlider.AbsolutePosition
-            local sliderSize = smoothnessSlider.AbsoluteSize
-            
-            -- Calculate new position
-            local newPos = (mousePos.X - sliderPos.X) / sliderSize.X
-            newPos = math.clamp(newPos, 0, 1)
-            
-            -- Update knob and hitbox position
-            sliderKnob.Position = UDim2.new(newPos, -5, 0, -5)
-            sliderHitbox.Position = UDim2.new(newPos, -10, 0, -10)
-            
-            -- Update smoothness value
-            smoothness = 0.1 + (newPos * 0.9)
-            smoothnessText.Text = "Smoothness: " .. string.format("%.2f", smoothness)
-            
-            isDragging = true
-        end
-    end)
+    -- Make knob circular
+    local smoothnessKnobCorner = Instance.new("UICorner")
+    smoothnessKnobCorner.CornerRadius = UDim.new(1, 0)
+    smoothnessKnobCorner.Parent = smoothnessKnob
     
-    -- Add connection to detect when mouse button is released anywhere
-    local connection1 = UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDragging = false
-        end
-    end)
+    -- Add shadow to knob
+    local smoothnessKnobShadow = Instance.new("Frame")
+    smoothnessKnobShadow.Name = "Shadow"
+    smoothnessKnobShadow.Size = UDim2.new(1, 4, 1, 4)
+    smoothnessKnobShadow.Position = UDim2.new(0, -2, 0, -2)
+    smoothnessKnobShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    smoothnessKnobShadow.BackgroundTransparency = 0.7
+    smoothnessKnobShadow.BorderSizePixel = 0
+    smoothnessKnobShadow.ZIndex = 1
+    smoothnessKnobShadow.Parent = smoothnessKnob
     
-    -- Add connection for dragging behavior
-    local connection2 = UserInputService.InputChanged:Connect(function(input)
-        if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            -- Get mouse position relative to slider
-            local mousePos = UserInputService:GetMouseLocation()
-            local sliderPos = smoothnessSlider.AbsolutePosition
-            local sliderSize = smoothnessSlider.AbsoluteSize
-            
-            -- Calculate new smoothness (clamped between 0 and 1)
-            local newPos = (mousePos.X - sliderPos.X) / sliderSize.X
-            newPos = math.clamp(newPos, 0, 1)
-            
-            -- Update knob and hitbox positions
-            sliderKnob.Position = UDim2.new(newPos, -5, 0, -5)
-            sliderHitbox.Position = UDim2.new(newPos, -10, 0, -10)
-            
-            -- Update smoothness value (using range 0.1 to 1 for better control)
-            smoothness = 0.1 + (newPos * 0.9)
-            smoothnessText.Text = "Smoothness: " .. string.format("%.2f", smoothness)
-        end
-    end)
+    -- Round shadow
+    local smoothnessKnobShadowCorner = Instance.new("UICorner")
+    smoothnessKnobShadowCorner.CornerRadius = UDim.new(1, 0)
+    smoothnessKnobShadowCorner.Parent = smoothnessKnobShadow
     
-    -- Store connections so they can be cleaned up if needed
-    table.insert(sliderConnections, connection1)
-    table.insert(sliderConnections, connection2)
+    -- =============== FLY MODE SECTION WITH SLIDER ===============
+    local flySection = Instance.new("Frame")
+    flySection.Name = "FlySection"
+    flySection.Size = UDim2.new(1, 0, 0, 110) -- Taller to fit fly speed slider
+    flySection.Position = UDim2.new(0, 0, 0, 120) -- Position below camlock section
+    flySection.BackgroundTransparency = 1
+    flySection.Parent = contentContainer
     
-    -- Add the unload functionality to the unload button
-    local unloadConnection = unloadButton.MouseButton1Click:Connect(function()
-        -- Hide the GUI
-        guiVisible = false
-        ghstGui.Enabled = false
-        
-        -- If targeting is on, turn it off
-        if isTargeting then
-            isTargeting = false
-            targetPlayer = nil
-            
-            -- Remove highlight if it exists
-            if highlight then
-                highlight:Destroy()
-                highlight = nil
-            end
-        end
-        
-        -- Clean up all connections
-        for _, connection in pairs(connections) do
-            connection:Disconnect()
-        end
-        
-        -- Clean up slider connections
-        for _, connection in pairs(sliderConnections) do
-            connection:Disconnect()
-        end
-        
-        -- Clean up title bar connections
-        for _, connection in pairs(titleBarConnections) do
-            connection:Disconnect()
-        end
-        
-        -- Disconnect the unload button's connection
-        unloadConnection:Disconnect()
-        
-        -- Notify in output
-        print("ghst.lol has been unloaded.")
-    end)
+    -- Fly Mode section title
+    local flyTitle = Instance.new("TextLabel")
+    flyTitle.Name = "SectionTitle"
+    flyTitle.Size = UDim2.new(1, 0, 0, 20)
+    flyTitle.BackgroundTransparency = 1
+    flyTitle.Text = "FLY MODE"
+    flyTitle.Font = Enum.Font.GothamBold
+    flyTitle.TextSize = 12
+    flyTitle.TextColor3 = Color3.fromRGB(255, 255, 255) -- Pure white
+    flyTitle.TextXAlignment = Enum.TextXAlignment.Left
+    flyTitle.Parent = flySection
     
-    -- Store the unload connection for later reference
-    table.insert(connections, unloadConnection)
+    -- Fly Mode Status container
+    local flyStatusContainer = Instance.new("Frame")
+    flyStatusContainer.Name = "FlyStatusContainer"
+    flyStatusContainer.Size = UDim2.new(1, 0, 0, 30)
+    flyStatusContainer.Position = UDim2.new(0, 0, 0, 20)
+    flyStatusContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 35) -- Darker background
+    flyStatusContainer.BorderSizePixel = 0
+    flyStatusContainer.Parent = flySection
     
-    -- Store references to the GUI elements for later use
-    local guiElements = {
-        gui = ghstGui,
+    -- Round the corners
+    local flyStatusCorner = statusCorner:Clone()
+    flyStatusCorner.Parent = flyStatusContainer
+    
+    -- Status text for fly
+    local flyStatusText = Instance.new("TextLabel")
+    flyStatusText.Name = "FlyStatusText"
+    flyStatusText.Size = UDim2.new(0.65, 0, 1, 0)
+    flyStatusText.Position = UDim2.new(0.03, 0, 0, 0)
+    flyStatusText.BackgroundTransparency = 1
+    flyStatusText.Text = "OFF (Press "..keyNames[flyKey]..")"
+    flyStatusText.Font = Enum.Font.Gotham
+    flyStatusText.TextSize = 13
+    flyStatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    flyStatusText.TextXAlignment = Enum.TextXAlignment.Left
+    flyStatusText.Parent = flyStatusContainer
+    
+    -- Fly status indicator (circle)
+    local flyStatusIndicator = statusIndicator:Clone()
+    flyStatusIndicator.Parent = flyStatusContainer
+    
+    -- Change fly key button
+    local changeFlyKeyButton = changeCamlockKeyButton:Clone()
+    changeFlyKeyButton.Name = "ChangeFlyKey"
+    changeFlyKeyButton.Parent = flyStatusContainer
+    
+    -- Fly Speed label directly under the status
+    local flySpeedLabel = Instance.new("TextLabel")
+    flySpeedLabel.Name = "FlySpeedLabel"
+    flySpeedLabel.Size = UDim2.new(0.7, 0, 0, 20)
+    flySpeedLabel.Position = UDim2.new(0, 0, 0, 60) -- Position below status container
+    flySpeedLabel.BackgroundTransparency = 1
+    flySpeedLabel.Text = "FLY SPEED"
+    flySpeedLabel.Font = Enum.Font.GothamBold
+    flySpeedLabel.TextSize = 12
+    flySpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- Pure white
+    flySpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+    flySpeedLabel.Parent = flySection
+    
+    -- Fly Speed value
+    local flySpeedValue = Instance.new("TextLabel")
+    flySpeedValue.Name = "FlySpeedValue"
+    flySpeedValue.Size = UDim2.new(0.3, 0, 0, 20)
+    flySpeedValue.Position = UDim2.new(0.7, 0, 0, 60) -- Aligned with fly speed label
+    flySpeedValue.BackgroundTransparency = 1
+    flySpeedValue.Text = tostring(flySpeed)
+    flySpeedValue.Font = Enum.Font.GothamSemibold
+    flySpeedValue.TextSize = 12
+    flySpeedValue.TextColor3 = Color3.fromRGB(200, 200, 200)
+    flySpeedValue.TextXAlignment = Enum.TextXAlignment.Right
+    flySpeedValue.Parent = flySection
+    
+    -- Fly Speed slider background
+    local flySpeedSliderBg = Instance.new("Frame")
+    flySpeedSliderBg.Name = "FlySpeedSliderBg"
+    flySpeedSliderBg.Size = UDim2.new(1, 0, 0, 20)
+    flySpeedSliderBg.Position = UDim2.new(0, 0, 0, 85) -- Below fly speed label
+    flySpeedSliderBg.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    flySpeedSliderBg.BorderSizePixel = 0
+    flySpeedSliderBg.Parent = flySection
+    
+    -- Round corners of slider background
+    local flySpeedBgCorner = Instance.new("UICorner")
+    flySpeedBgCorner.CornerRadius = UDim.new(0, 6)
+    flySpeedBgCorner.Parent = flySpeedSliderBg
+    
+    -- Fly Speed slider
+    local flySpeedSlider = Instance.new("Frame")
+    flySpeedSlider.Name = "FlySpeedSlider"
+    flySpeedSlider.Size = UDim2.new(0.94, 0, 0, 4)
+    flySpeedSlider.Position = UDim2.new(0.03, 0, 0.5, -2) -- Center in background
+    flySpeedSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    flySpeedSlider.BorderSizePixel = 0
+    flySpeedSlider.Parent = flySpeedSliderBg
+    
+    -- Round corners of fly speed slider
+    local flySpeedSliderCorner = Instance.new("UICorner")
+    flySpeedSliderCorner.CornerRadius = UDim.new(0, 2)
+    flySpeedSliderCorner.Parent = flySpeedSlider
+    
+    -- Fly Speed progress
+    local flySpeedProgress = Instance.new("Frame")
+    flySpeedProgress.Name = "Progress"
+    flySpeedProgress.Size = UDim2.new(flySpeed/500, 0, 1, 0) -- Based on current fly speed (max 500)
+    flySpeedProgress.BackgroundColor3 = Color3.fromRGB(240, 30, 60)
+    flySpeedProgress.BorderSizePixel = 0
+    flySpeedProgress.Parent = flySpeedSlider
+    
+    -- Round corners of progress bar
+    local flySpeedProgressCorner = Instance.new("UICorner")
+    flySpeedProgressCorner.CornerRadius = UDim.new(0, 2)
+    flySpeedProgressCorner.Parent = flySpeedProgress
+    
+    -- Fly Speed knob
+    local flySpeedKnob = Instance.new("Frame")
+    flySpeedKnob.Name = "Knob"
+    flySpeedKnob.Size = UDim2.new(0, 16, 0, 16)
+    flySpeedKnob.Position = UDim2.new(flySpeed/500, -8, 0.5, -8) -- Position based on current fly speed
+    flySpeedKnob.BackgroundColor3 = Color3.fromRGB(240, 240, 250)
+    flySpeedKnob.BorderSizePixel = 0
+    flySpeedKnob.ZIndex = 2
+    flySpeedKnob.Parent = flySpeedSlider
+    
+    -- Make knob circular
+    local flySpeedKnobCorner = Instance.new("UICorner")
+    flySpeedKnobCorner.CornerRadius = UDim.new(1, 0)
+    flySpeedKnobCorner.Parent = flySpeedKnob
+    
+    -- Add shadow to knob
+    local flySpeedKnobShadow = Instance.new("Frame")
+    flySpeedKnobShadow.Name = "Shadow"
+    flySpeedKnobShadow.Size = UDim2.new(1, 4, 1, 4)
+    flySpeedKnobShadow.Position = UDim2.new(0, -2, 0, -2)
+    flySpeedKnobShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    flySpeedKnobShadow.BackgroundTransparency = 0.7
+    flySpeedKnobShadow.BorderSizePixel = 0
+    flySpeedKnobShadow.ZIndex = 1
+    flySpeedKnobShadow.Parent = flySpeedKnob
+    
+    -- Round shadow
+    local flySpeedKnobShadowCorner = Instance.new("UICorner")
+    flySpeedKnobShadowCorner.CornerRadius = UDim.new(1, 0)
+    flySpeedKnobShadowCorner.Parent = flySpeedKnobShadow
+    
+    -- Store elements for later reference
+    guiElements = {
+        mainFrame = mainFrame,
         statusText = statusText,
-        smoothnessText = smoothnessText,
-        mainFrame = mainFrame
+        flyStatusText = flyStatusText,
+        smoothnessValue = smoothnessValue,
+        smoothnessSlider = smoothnessSlider,
+        smoothnessKnob = smoothnessKnob,
+        flySpeedValue = flySpeedValue,
+        flySpeedSlider = flySpeedSlider,
+        flySpeedKnob = flySpeedKnob,
+        changeCamlockKeyButton = changeCamlockKeyButton,
+        changeFlyKeyButton = changeFlyKeyButton
     }
     
-    -- Try to parent the GUI to the CoreGui if allowed, otherwise to PlayerGui
-    pcall(function()
-        ghstGui.Parent = CoreGui
+    -- Make the smoothness slider draggable
+    local isDraggingSmoothnessSlider = false
+    
+    smoothnessSlider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDraggingSmoothnessSlider = true
+        end
     end)
     
-    if not ghstGui.Parent then
-        local playerGui = localPlayer:WaitForChild("PlayerGui")
-        ghstGui.Parent = playerGui
+    smoothnessSlider.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDraggingSmoothnessSlider = false
+        end
+    end)
+    
+    -- Make the fly speed slider draggable
+    local isDraggingFlySpeedSlider = false
+    
+    flySpeedSlider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDraggingFlySpeedSlider = true
+        end
+    end)
+    
+    flySpeedSlider.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDraggingFlySpeedSlider = false
+        end
+    end)
+    
+    -- Update sliders when mouse moves
+    UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            -- Update smoothness slider
+            if isDraggingSmoothnessSlider then
+                local mousePos = input.Position
+                local sliderPos = smoothnessSlider.AbsolutePosition
+                local sliderSize = smoothnessSlider.AbsoluteSize
+                
+                local relativePosX = (mousePos.X - sliderPos.X) / sliderSize.X
+                relativePosX = math.clamp(relativePosX, 0, 1)
+                
+                -- Update knob position
+                smoothnessKnob.Position = UDim2.new(relativePosX, -8, 0.5, -8)
+                
+                -- Update progress bar width
+                smoothnessProgress.Size = UDim2.new(relativePosX, 0, 1, 0)
+                
+                -- Update smoothness value
+                smoothness = relativePosX
+                smoothnessValue.Text = string.format("%.2f", smoothness)
+            end
+            
+            -- Update fly speed slider
+            if isDraggingFlySpeedSlider then
+                local mousePos = input.Position
+                local sliderPos = flySpeedSlider.AbsolutePosition
+                local sliderSize = flySpeedSlider.AbsoluteSize
+                
+                local relativePosX = (mousePos.X - sliderPos.X) / sliderSize.X
+                relativePosX = math.clamp(relativePosX, 0, 1)
+                
+                -- Update knob position
+                flySpeedKnob.Position = UDim2.new(relativePosX, -8, 0.5, -8)
+                
+                -- Update progress bar width
+                flySpeedProgress.Size = UDim2.new(relativePosX, 0, 1, 0)
+                
+                -- Update fly speed value (max 500)
+                flySpeed = math.floor(relativePosX * 500)
+                flySpeedValue.Text = tostring(flySpeed)
+            end
+        end
+    end)
+    
+    -- Connect button click events
+    closeButton.MouseButton1Click:Connect(unloadScript)
+    
+    -- Keybind change functions
+    changeCamlockKeyButton.MouseButton1Click:Connect(function()
+        statusText.Text = "Press any key..."
+        
+        local connection
+        connection = UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                -- Update the key binding
+                camlockKey = input.KeyCode
+                
+                -- Update the display name for the key
+                if not keyNames[camlockKey] then
+                    keyNames[camlockKey] = camlockKey.Name
+                end
+                
+                -- Update the text display
+                if isTargeting then
+                    statusText.Text = "ON (Press "..keyNames[camlockKey]..")"
+                else
+                    statusText.Text = "OFF (Press "..keyNames[camlockKey]..")"
+                end
+                
+                -- Clean up connection
+                connection:Disconnect()
+            end
+        end)
+    end)
+    
+    changeFlyKeyButton.MouseButton1Click:Connect(function()
+        flyStatusText.Text = "Press any key..."
+        
+        local connection
+        connection = UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                -- Update the key binding
+                flyKey = input.KeyCode
+                
+                -- Update the display name for the key
+                if not keyNames[flyKey] then
+                    keyNames[flyKey] = flyKey.Name
+                end
+                
+                -- Update the text display
+                if isFlying then
+                    flyStatusText.Text = "ON (Press "..keyNames[flyKey]..")"
+                else
+                    flyStatusText.Text = "OFF (Press "..keyNames[flyKey]..")"
+                end
+                
+                -- Clean up connection
+                connection:Disconnect()
+            end
+        end)
+    end)
+    
+    -- Set up the instance to be synced if parent is provided
+    if self and self.Parent then
+        -- Parent it to PlayerGui or other container
+        screenGui.Parent = self.Parent
+    else
+        -- Parent to Coregui for normal script execution
+        local success, result = pcall(function()
+            return game:GetService("CoreGui")
+        end)
+        
+        if success then
+            screenGui.Parent = result
+        elseif localPlayer:FindFirstChild("PlayerGui") then
+            screenGui.Parent = localPlayer.PlayerGui
+        else
+            screenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        end
     end
     
-    return guiElements
+    return screenGui
 end
 
--- Function to find the closest player to target
+-- Function to find the closest player for targeting
 local function findClosestPlayer()
-    local closestPlayer = nil
-    local shortestDistance = maxDistance
+    local closest = nil
+    local minDistance = maxDistance
+    local myPosition = nil
     
-    -- Loop through all players in the game
-    for _, player in pairs(Players:GetPlayers()) do
-        -- Skip the local player (we don't want to target ourselves)
-        if player ~= localPlayer then
-            -- Check if the player's character exists and they have a head
-            if player.Character and player.Character:FindFirstChild("Head") and
+    -- Check if local player's character exists
+    if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        myPosition = localPlayer.Character.HumanoidRootPart.Position
+        
+        -- Loop through all players
+        for _, player in pairs(Players:GetPlayers()) do
+            -- Skip the local player
+            if player ~= localPlayer and 
+               player.Character and 
                player.Character:FindFirstChild("HumanoidRootPart") and
-               localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+               player.Character:FindFirstChild("Head") and
+               player.Character:FindFirstChild("Humanoid") and
+               player.Character.Humanoid.Health > 0 then
                 
-                -- Calculate the distance between our character and the target's head
-                local distance = (localPlayer.Character.HumanoidRootPart.Position - player.Character.Head.Position).Magnitude
+                -- Calculate distance to player
+                local distance = (myPosition - player.Character.HumanoidRootPart.Position).Magnitude
                 
-                -- If this player is closer than our current closest, update our target
-                if distance < shortestDistance then
-                    closestPlayer = player
-                    shortestDistance = distance
+                -- Update closest player if this one is closer
+                if distance < minDistance then
+                    closest = player
+                    minDistance = distance
                 end
             end
         end
     end
     
-    return closestPlayer
+    return closest
 end
 
--- Create the GUI for our camlock settings
-local guiElements = createGui()
-
--- Function to apply highlight to a player
+-- Function to apply a highlight to the targeted player
 local function applyHighlight(player)
     -- Remove any existing highlight
     if highlight then
@@ -329,6 +844,7 @@ local function applyHighlight(player)
         highlight = nil
     end
     
+    -- Create a new highlight if the player exists and has a character
     if player and player.Character then
         -- Create a new highlight
         highlight = Instance.new("Highlight")
@@ -349,7 +865,7 @@ local function toggleTargeting()
     
     if isTargeting then
         -- When targeting is turned on, find a target
-        guiElements.statusText.Text = "Status: ON (Press C to toggle)"
+        guiElements.statusText.Text = "ON (Press "..keyNames[camlockKey]..")"
         guiElements.statusText.TextColor3 = Color3.fromRGB(0, 255, 0)
         targetPlayer = findClosestPlayer()
         
@@ -359,8 +875,8 @@ local function toggleTargeting()
         end
     else
         -- When targeting is turned off, clear the target
-        guiElements.statusText.Text = "Status: OFF (Press C to toggle)"
-        guiElements.statusText.TextColor3 = Color3.fromRGB(255, 255, 255)
+        guiElements.statusText.Text = "OFF (Press "..keyNames[camlockKey]..")"
+        guiElements.statusText.TextColor3 = Color3.fromRGB(200, 200, 200)
         targetPlayer = nil
         
         -- Remove highlight
@@ -371,12 +887,12 @@ local function toggleTargeting()
     end
 end
 
--- Connect to the input service to detect when the C key is pressed
+-- Connect to the input service to detect key presses for camlock
 local inputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
     -- Only process if we're not in a text box or something
     if not gameProcessed then
-        -- Check if the C key was pressed to toggle targeting
-        if input.KeyCode == Enum.KeyCode.C then
+        -- Check if the camlock key was pressed to toggle targeting
+        if input.KeyCode == camlockKey then
             -- Only activate if GUI is visible
             if guiVisible then
                 toggleTargeting()
@@ -411,7 +927,7 @@ local function updateCamera()
         end
         
         -- Apply highlight to the targeted player regardless of camera mode
-        if highlight == nil or targetPlayer.Character ~= highlight.Adornee then
+        if highlight == nil or highlight.Adornee ~= targetPlayer.Character then
             applyHighlight(targetPlayer)
         end
 
@@ -432,8 +948,230 @@ local cameraConnection = RunService.RenderStepped:Connect(updateCamera)
 -- Store this connection for cleanup
 table.insert(connections, cameraConnection)
 
+-- Function to toggle flying
+local function toggleFlying()
+    isFlying = not isFlying
+    
+    if isFlying then
+        -- Update the GUI
+        guiElements.flyStatusText.Text = "ON (Press "..keyNames[flyKey]..")"
+        guiElements.flyStatusText.TextColor3 = Color3.fromRGB(0, 255, 0)
+        
+        -- Make sure we have access to the character's humanoid
+        if not localPlayer.Character or not localPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            isFlying = false
+            guiElements.flyStatusText.Text = "OFF (Press "..keyNames[flyKey]..")"
+            guiElements.flyStatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+            return
+        end
+        
+        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+        local rootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+        
+        -- Store the original state to reset it later
+        local oldGravity = workspace.Gravity
+        local oldState = humanoid:GetState()
+        
+        -- Configure character for flying
+        workspace.Gravity = 0
+        humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+        rootPart.Velocity = Vector3.new(0, 0, 0)
+        
+        -- Show a success message
+        print("Fly mode activated. Use WASD, Space, and Left Shift to fly.")
+    else
+        -- Update the GUI
+        guiElements.flyStatusText.Text = "OFF (Press "..keyNames[flyKey]..")"
+        guiElements.flyStatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+        
+        -- Save the current facing direction before disabling fly
+        local currentFacingDirection = nil
+        if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = localPlayer.Character.HumanoidRootPart
+            -- Store the current look vector (horizontal only)
+            local lookVector = rootPart.CFrame.LookVector
+            currentFacingDirection = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
+        end
+        
+        -- Reset gravity and character state if character exists
+        if localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            workspace.Gravity = 196.2 -- Default Roblox gravity
+            local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+            local rootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+            
+            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+            
+            -- Restore the character's facing direction
+            if currentFacingDirection then
+                -- Apply the saved facing direction
+                rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + currentFacingDirection)
+                humanoid:Move(currentFacingDirection, false)
+            end
+        end
+        
+        -- Reset all movement keys
+        for key, _ in pairs(flyKeys) do
+            flyKeys[key] = false
+        end
+        
+        print("Fly mode deactivated.")
+    end
+end
+
+-- Connect keyboard input for flying
+local flyKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and guiVisible then
+        -- Check for fly toggle
+        if input.KeyCode == flyKey then
+            toggleFlying()
+            return
+        end
+        
+        -- Check for movement keys
+        if input.KeyCode == Enum.KeyCode.W then
+            flyKeys.W = true
+        elseif input.KeyCode == Enum.KeyCode.A then
+            flyKeys.A = true
+        elseif input.KeyCode == Enum.KeyCode.S then
+            flyKeys.S = true
+        elseif input.KeyCode == Enum.KeyCode.D then
+            flyKeys.D = true
+        elseif input.KeyCode == Enum.KeyCode.Space then
+            flyKeys.Space = true
+        elseif input.KeyCode == Enum.KeyCode.LeftShift then
+            flyKeys.LeftShift = true
+        end
+    end
+end)
+
+-- Connect keyboard release for flying
+local flyKeyReleaseConnection = UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if not gameProcessed then
+        -- Check for movement keys
+        if input.KeyCode == Enum.KeyCode.W then
+            flyKeys.W = false
+        elseif input.KeyCode == Enum.KeyCode.A then
+            flyKeys.A = false
+        elseif input.KeyCode == Enum.KeyCode.S then
+            flyKeys.S = false
+        elseif input.KeyCode == Enum.KeyCode.D then
+            flyKeys.D = false
+        elseif input.KeyCode == Enum.KeyCode.Space then
+            flyKeys.Space = false
+        elseif input.KeyCode == Enum.KeyCode.LeftShift then
+            flyKeys.LeftShift = false
+        end
+    end
+end)
+
+-- Store the key connections for cleanup
+table.insert(connections, flyKeyConnection)
+table.insert(connections, flyKeyReleaseConnection)
+
+-- Function to update flying movement based on key presses
+local function updateFlyMovement()
+    if isFlying and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local rootPart = localPlayer.Character.HumanoidRootPart
+        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+        local currentCFrame = camera.CFrame
+        local flyVelocity = Vector3.new(0, 0, 0)
+        
+        -- Calculate fly direction based on camera orientation
+        if flyKeys.W then
+            flyVelocity = flyVelocity + currentCFrame.LookVector
+        end
+        if flyKeys.S then
+            flyVelocity = flyVelocity - currentCFrame.LookVector
+        end
+        if flyKeys.A then
+            flyVelocity = flyVelocity - currentCFrame.RightVector
+        end
+        if flyKeys.D then
+            flyVelocity = flyVelocity + currentCFrame.RightVector
+        end
+        if flyKeys.Space then
+            flyVelocity = flyVelocity + Vector3.new(0, 1, 0)
+        end
+        if flyKeys.LeftShift then
+            flyVelocity = flyVelocity - Vector3.new(0, 1, 0)
+        end
+        
+        -- Normalize velocity for consistent speed regardless of direction
+        if flyVelocity.Magnitude > 0 then
+            flyVelocity = flyVelocity.Unit * flySpeed
+            
+            -- Determine the character's facing direction based on movement keys
+            -- This maintains normal character orientation controls
+            local moveDir = Vector3.new(0, 0, 0)
+            
+            -- Get the flat movement direction (ignoring vertical movement)
+            local flatVelocity = Vector3.new(flyVelocity.X, 0, flyVelocity.Z)
+            
+            -- Only change facing direction if there's horizontal movement
+            if flatVelocity.Magnitude > 0.1 then
+                -- Set the humanoid's move direction for proper character facing
+                humanoid:Move(flatVelocity, false)
+                
+                -- If the character has a facing direction, make it face the movement direction
+                local moveLookVector = flatVelocity.Unit
+                local characterFacingCFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + moveLookVector)
+                rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + moveLookVector)
+            end
+        end
+        
+        -- Apply velocity
+        rootPart.Velocity = flyVelocity
+    end
+end
+
+-- Connect our fly movement function to RunService's Heartbeat event
+local flyMovementConnection = RunService.Heartbeat:Connect(updateFlyMovement)
+
+-- Store the fly connection for cleanup
+table.insert(connections, flyMovementConnection)
+
 -- Print initial instructions
 print("=== ghst.lol Camera Lock Script ===")
 print("Press 'C' to toggle camera lock on/off")
-print("Use the X button to unload the GUI and features")
-print("Adjust smoothness with the slider")
+print("Press 'X' to toggle fly mode")
+print("Use WASD, Space (up), and Left Shift (down) to control flight")
+print("Adjust smoothness and fly speed (max 500) with the sliders")
+print("Change keybinds using the 'Change' buttons in the GUI")
+print("Use the X button to unload the script and reset everything")
+print("=== Created by ghst.lol ===")
+
+-- Function to unload the script and clean everything up
+function unloadScript()
+    -- Clean up connections
+    for _, connection in pairs(connections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
+    
+    -- Turn off targeting
+    isTargeting = false
+    if highlight then
+        highlight:Destroy()
+        highlight = nil
+    end
+    
+    -- Turn off flying
+    if isFlying then
+        toggleFlying()
+    end
+    
+    -- Restore camera
+    camera.CameraType = Enum.CameraType.Custom
+    
+    -- Remove GUI
+    if guiElements.mainFrame then
+        guiElements.mainFrame:Destroy()
+    end
+    
+    -- Print unload message
+    print("=== ghst.lol Camera Lock Script has been unloaded ===")
+end
+
+-- Create the GUI to start the script
+createGui()
