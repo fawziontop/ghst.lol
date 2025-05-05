@@ -15,7 +15,7 @@ local camera = workspace.CurrentCamera
 -- Settings
 local maxDistance = 200  -- Maximum distance to target players
 local smoothness = 0.5   -- Initial smoothness for camera movements (1 = instant, 0 = no movement)
-local flySpeed = 100     -- Initial flying speed (max 500)
+local flySpeed = 100     -- Initial flying speed (max 1000)
 
 -- Default key bindings
 local camlockKey = Enum.KeyCode.C  -- Default key to toggle camera lock
@@ -26,6 +26,7 @@ local keyNames = {
     [Enum.KeyCode.C] = "C",
     [Enum.KeyCode.X] = "X",
     [Enum.KeyCode.F] = "F",
+    [Enum.KeyCode.RightControl] = "Right Ctrl",
     -- Add more keys as needed
 }
 
@@ -191,7 +192,7 @@ local function createGui()
     skullImageLogo.Size = UDim2.new(0, 30, 0, 30) -- Size to fit the logo container
     skullImageLogo.Position = UDim2.new(0.5, -15, 0.5, -15) -- Center in the container
     skullImageLogo.BackgroundTransparency = 1
-    skullImageLogo.Image = "rbxassetid://15848018614" -- Detailed skull image (Roblox asset ID)
+    skullImageLogo.Image = "rbxassetid://16012654984" -- Updated skull logo (Roblox asset ID)
     skullImageLogo.ImageColor3 = Color3.fromRGB(255, 255, 255) -- Ensure it's white
     skullImageLogo.ScaleType = Enum.ScaleType.Fit -- Scale to fit while maintaining aspect ratio
     skullImageLogo.ZIndex = 3
@@ -211,13 +212,13 @@ local function createGui()
     titleText.ZIndex = 3
     titleText.Parent = titleBar
     
-    -- Subtitle text 
+    -- Subtitle text (removed as requested)
     local subtitleText = Instance.new("TextLabel")
     subtitleText.Name = "SubtitleText"
     subtitleText.Size = UDim2.new(0, 100, 0, 20)
     subtitleText.Position = UDim2.new(0, 55, 0, 20)
     subtitleText.BackgroundTransparency = 1
-    subtitleText.Text = "Camera Lock & Fly"
+    subtitleText.Text = ""
     subtitleText.Font = Enum.Font.Gotham
     subtitleText.TextSize = 12
     subtitleText.TextColor3 = Color3.fromRGB(180, 180, 190)
@@ -590,7 +591,7 @@ local function createGui()
     -- Fly Speed progress
     local flySpeedProgress = Instance.new("Frame")
     flySpeedProgress.Name = "Progress"
-    flySpeedProgress.Size = UDim2.new(flySpeed/500, 0, 1, 0) -- Based on current fly speed (max 500)
+    flySpeedProgress.Size = UDim2.new(flySpeed/1000, 0, 1, 0) -- Based on current fly speed (max 1000)
     flySpeedProgress.BackgroundColor3 = Color3.fromRGB(240, 30, 60)
     flySpeedProgress.BorderSizePixel = 0
     flySpeedProgress.Parent = flySpeedSlider
@@ -604,7 +605,7 @@ local function createGui()
     local flySpeedKnob = Instance.new("Frame")
     flySpeedKnob.Name = "Knob"
     flySpeedKnob.Size = UDim2.new(0, 16, 0, 16)
-    flySpeedKnob.Position = UDim2.new(flySpeed/500, -8, 0.5, -8) -- Position based on current fly speed
+    flySpeedKnob.Position = UDim2.new(flySpeed/1000, -8, 0.5, -8) -- Position based on current fly speed (max 1000)
     flySpeedKnob.BackgroundColor3 = Color3.fromRGB(240, 240, 250)
     flySpeedKnob.BorderSizePixel = 0
     flySpeedKnob.ZIndex = 2
@@ -714,8 +715,8 @@ local function createGui()
                 -- Update progress bar width
                 flySpeedProgress.Size = UDim2.new(relativePosX, 0, 1, 0)
                 
-                -- Update fly speed value (max 500)
-                flySpeed = math.floor(relativePosX * 500)
+                -- Update fly speed value (max 1000)
+                flySpeed = math.floor(relativePosX * 1000)
                 flySpeedValue.Text = tostring(flySpeed)
             end
         end
@@ -893,10 +894,8 @@ local inputConnection = UserInputService.InputBegan:Connect(function(input, game
     if not gameProcessed then
         -- Check if the camlock key was pressed to toggle targeting
         if input.KeyCode == camlockKey then
-            -- Only activate if GUI is visible
-            if guiVisible then
-                toggleTargeting()
-            end
+            -- Functions still work even when the GUI is hidden
+            toggleTargeting()
         end
     end
 end)
@@ -948,6 +947,25 @@ local cameraConnection = RunService.RenderStepped:Connect(updateCamera)
 -- Store this connection for cleanup
 table.insert(connections, cameraConnection)
 
+-- Function to toggle GUI visibility (show/hide)
+local function toggleGuiVisibility()
+    if guiElements.mainFrame then
+        guiVisible = not guiVisible
+        guiElements.mainFrame.Visible = guiVisible
+        print("GUI visibility toggled: " .. (guiVisible and "Visible" or "Hidden") .. " (Press Right Ctrl to toggle)")
+    end
+end
+
+-- Connect Right Ctrl key to toggle GUI visibility
+local guiToggleConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightControl then
+        toggleGuiVisibility()
+    end
+end)
+
+-- Store this connection for cleanup
+table.insert(connections, guiToggleConnection)
+
 -- Function to toggle flying
 local function toggleFlying()
     isFlying = not isFlying
@@ -977,6 +995,17 @@ local function toggleFlying()
         humanoid:ChangeState(Enum.HumanoidStateType.Physics)
         rootPart.Velocity = Vector3.new(0, 0, 0)
         
+        -- Create an anchor part to keep character stable when not moving
+        if not rootPart:FindFirstChild("FlyAnchor") then
+            local anchor = Instance.new("BodyPosition")
+            anchor.Name = "FlyAnchor"
+            anchor.MaxForce = Vector3.new(0, 0, 0) -- Initially disabled
+            anchor.P = 100000 -- Strong force when enabled
+            anchor.D = 1000 -- Damping to prevent oscillation
+            anchor.Position = rootPart.Position
+            anchor.Parent = rootPart
+        end
+        
         -- Show a success message
         print("Fly mode activated. Use WASD, Space, and Left Shift to fly.")
     else
@@ -999,6 +1028,11 @@ local function toggleFlying()
             local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
             local rootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
             
+            -- Remove the fly anchor if it exists
+            if rootPart:FindFirstChild("FlyAnchor") then
+                rootPart.FlyAnchor:Destroy()
+            end
+            
             humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
             
             -- Restore the character's facing direction
@@ -1020,8 +1054,8 @@ end
 
 -- Connect keyboard input for flying
 local flyKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and guiVisible then
-        -- Check for fly toggle
+    if not gameProcessed then
+        -- Check for fly toggle - functions still work even when GUI is hidden
         if input.KeyCode == flyKey then
             toggleFlying()
             return
@@ -1075,26 +1109,36 @@ local function updateFlyMovement()
         local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
         local currentCFrame = camera.CFrame
         local flyVelocity = Vector3.new(0, 0, 0)
+        local anyKeyPressed = false
         
         -- Calculate fly direction based on camera orientation
         if flyKeys.W then
             flyVelocity = flyVelocity + currentCFrame.LookVector
+            anyKeyPressed = true
         end
         if flyKeys.S then
             flyVelocity = flyVelocity - currentCFrame.LookVector
+            anyKeyPressed = true
         end
         if flyKeys.A then
             flyVelocity = flyVelocity - currentCFrame.RightVector
+            anyKeyPressed = true
         end
         if flyKeys.D then
             flyVelocity = flyVelocity + currentCFrame.RightVector
+            anyKeyPressed = true
         end
         if flyKeys.Space then
             flyVelocity = flyVelocity + Vector3.new(0, 1, 0)
+            anyKeyPressed = true
         end
         if flyKeys.LeftShift then
             flyVelocity = flyVelocity - Vector3.new(0, 1, 0)
+            anyKeyPressed = true
         end
+        
+        -- Get anchor if it exists
+        local anchor = rootPart:FindFirstChild("FlyAnchor")
         
         -- Normalize velocity for consistent speed regardless of direction
         if flyVelocity.Magnitude > 0 then
@@ -1117,10 +1161,26 @@ local function updateFlyMovement()
                 local characterFacingCFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + moveLookVector)
                 rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + moveLookVector)
             end
+            
+            -- Disable anchor when moving
+            if anchor then
+                anchor.MaxForce = Vector3.new(0, 0, 0)
+            end
+            
+            -- Apply velocity when keys are pressed
+            rootPart.Velocity = flyVelocity
+        else
+            -- Stabilize the character when no keys are pressed
+            if anchor then
+                -- Update anchor position to current position
+                anchor.Position = rootPart.Position
+                -- Enable anchor to lock position in place
+                anchor.MaxForce = Vector3.new(9999999, 9999999, 9999999)
+            else
+                -- If no anchor exists (shouldn't happen), apply minimal velocity
+                rootPart.Velocity = Vector3.new(0, 0.1, 0)
+            end
         end
-        
-        -- Apply velocity
-        rootPart.Velocity = flyVelocity
     end
 end
 
@@ -1134,8 +1194,9 @@ table.insert(connections, flyMovementConnection)
 print("=== ghst.lol Camera Lock Script ===")
 print("Press 'C' to toggle camera lock on/off")
 print("Press 'X' to toggle fly mode")
+print("Press 'Right Ctrl' to show/hide the GUI")
 print("Use WASD, Space (up), and Left Shift (down) to control flight")
-print("Adjust smoothness and fly speed (max 500) with the sliders")
+print("Adjust smoothness and fly speed (max 1000) with the sliders")
 print("Change keybinds using the 'Change' buttons in the GUI")
 print("Use the X button to unload the script and reset everything")
 print("=== Created by ghst.lol ===")
