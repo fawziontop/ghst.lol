@@ -15,7 +15,7 @@ local camera = workspace.CurrentCamera
 -- Settings
 local maxDistance = 200  -- Maximum distance to target players
 local smoothness = 0.5   -- Initial smoothness for camera movements (1 = instant, 0 = no movement)
-local flySpeed = 100     -- Initial flying speed (max 1000)
+local flySpeed = 100     -- Initial flying speed (max 500)
 
 -- Default key bindings
 local camlockKey = Enum.KeyCode.C  -- Default key to toggle camera lock
@@ -591,7 +591,7 @@ local function createGui()
     -- Fly Speed progress
     local flySpeedProgress = Instance.new("Frame")
     flySpeedProgress.Name = "Progress"
-    flySpeedProgress.Size = UDim2.new(flySpeed/1000, 0, 1, 0) -- Based on current fly speed (max 1000)
+    flySpeedProgress.Size = UDim2.new(flySpeed/500, 0, 1, 0) -- Based on current fly speed (max 500)
     flySpeedProgress.BackgroundColor3 = Color3.fromRGB(240, 30, 60)
     flySpeedProgress.BorderSizePixel = 0
     flySpeedProgress.Parent = flySpeedSlider
@@ -605,7 +605,7 @@ local function createGui()
     local flySpeedKnob = Instance.new("Frame")
     flySpeedKnob.Name = "Knob"
     flySpeedKnob.Size = UDim2.new(0, 16, 0, 16)
-    flySpeedKnob.Position = UDim2.new(flySpeed/1000, -8, 0.5, -8) -- Position based on current fly speed (max 1000)
+    flySpeedKnob.Position = UDim2.new(flySpeed/500, -8, 0.5, -8) -- Position based on current fly speed (max 500)
     flySpeedKnob.BackgroundColor3 = Color3.fromRGB(240, 240, 250)
     flySpeedKnob.BorderSizePixel = 0
     flySpeedKnob.ZIndex = 2
@@ -715,8 +715,8 @@ local function createGui()
                 -- Update progress bar width
                 flySpeedProgress.Size = UDim2.new(relativePosX, 0, 1, 0)
                 
-                -- Update fly speed value (max 1000)
-                flySpeed = math.floor(relativePosX * 1000)
+                -- Update fly speed value (max 500)
+                flySpeed = math.floor(relativePosX * 500)
                 flySpeedValue.Text = tostring(flySpeed)
             end
         end
@@ -1196,7 +1196,7 @@ print("Press 'C' to toggle camera lock on/off")
 print("Press 'X' to toggle fly mode")
 print("Press 'Right Ctrl' to show/hide the GUI")
 print("Use WASD, Space (up), and Left Shift (down) to control flight")
-print("Adjust smoothness and fly speed (max 1000) with the sliders")
+print("Adjust smoothness and fly speed (max 500) with the sliders")
 print("Change keybinds using the 'Change' buttons in the GUI")
 print("Use the X button to unload the script and reset everything")
 print("=== Created by ghst.lol ===")
