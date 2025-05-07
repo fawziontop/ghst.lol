@@ -15,7 +15,7 @@ local camera = workspace.CurrentCamera
 -- Settings
 local maxDistance = 200  -- Maximum distance to target players
 local smoothness = 0.5   -- Initial smoothness for camera movements (1 = instant, 0 = no movement)
-local walkspeed = 100    -- Initial walkspeed (max 180)
+local walkspeed = 100    -- Initial walkspeed (max 500)
 local originalWalkspeed = nil  -- To store the original walkspeed
 
 -- Default key bindings
@@ -39,6 +39,9 @@ local highlight = nil      -- Highlight effect on target
 local guiVisible = true    -- Is our GUI visible?
 local walkspeedActive = false -- Is walkspeed active?
 local connections = {}     -- Store all connections to disconnect them later
+
+-- Default key for toggling GUI visibility
+local toggleGuiKey = Enum.KeyCode.RightControl  -- Right Ctrl key
 
 -- GUI elements
 local guiElements = {}
@@ -571,7 +574,7 @@ local function createGui()
     -- Speed slider fill (white)
     local walkspeedSliderFill = Instance.new("Frame")
     walkspeedSliderFill.Name = "SpeedSliderFill"
-    walkspeedSliderFill.Size = UDim2.new(walkspeed / 180, 0, 1, 0) -- Scale based on walkspeed (max 180)
+    walkspeedSliderFill.Size = UDim2.new(walkspeed / 500, 0, 1, 0) -- Scale based on walkspeed (max 500)
     walkspeedSliderFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- White fill
     walkspeedSliderFill.BorderSizePixel = 0
     walkspeedSliderFill.Parent = walkspeedSliderBackground
@@ -584,7 +587,7 @@ local function createGui()
     local walkspeedSliderKnob = Instance.new("Frame")
     walkspeedSliderKnob.Name = "SpeedSliderKnob"
     walkspeedSliderKnob.Size = UDim2.new(0, 16, 0, 16)
-    walkspeedSliderKnob.Position = UDim2.new(walkspeed / 180, 0, 0.5, 0) -- Position based on walkspeed (max 180)
+    walkspeedSliderKnob.Position = UDim2.new(walkspeed / 500, 0, 0.5, 0) -- Position based on walkspeed (max 500)
     walkspeedSliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
     walkspeedSliderKnob.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
     walkspeedSliderKnob.BorderSizePixel = 0
@@ -677,8 +680,8 @@ local function createGui()
                     -- Calculate relative position
                     local relativePosX = math.clamp((inputPosition.X - walkspeedSliderPosition.X) / walkspeedSliderSize.X, 0, 1)
                     
-                    -- Update walkspeed value (max 180)
-                    walkspeed = math.floor(relativePosX * 180)
+                    -- Update walkspeed value (max 500)
+                    walkspeed = math.floor(relativePosX * 500)
                     walkspeedValue.Text = tostring(walkspeed)
                     
                     -- Update slider visuals
@@ -688,7 +691,15 @@ local function createGui()
                     -- Apply immediately if walkspeed is enabled
                     if walkspeedActive and localPlayer.Character and 
                        localPlayer.Character:FindFirstChildOfClass("Humanoid") then
-                        localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = walkspeed
+                       
+                        -- Aggressive application to override any game scripts
+                        for i = 1, 3 do
+                            task.spawn(function()
+                                localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = walkspeed
+                                task.wait(0.05)
+                                localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = walkspeed
+                            end)
+                        end
                     end
                 end
                 
@@ -942,7 +953,16 @@ local function initWalkspeed()
     end
 end
 
--- Function to toggle walkspeed on/off
+-- Function to toggle GUI visibility
+local function toggleGuiVisibility()
+    if guiElements.mainFrame then
+        guiVisible = not guiVisible
+        guiElements.mainFrame.Visible = guiVisible
+        print("GUI visibility toggled to:", guiVisible)
+    end
+end
+
+-- Function to toggle walkspeed on/off with smooth transitions
 local function toggleWalkspeed()
     -- Initialize if needed
     if not originalWalkspeed then
@@ -954,64 +974,322 @@ local function toggleWalkspeed()
     
     -- Update UI
     if walkspeedActive then
-        -- Turn on walkspeed
+        -- Turn on walkspeed with visual feedback
         guiElements.walkspeedStatusText.Text = "ON (Press "..keyNames[walkspeedKey]..")"
         guiElements.walkspeedStatusText.TextColor3 = Color3.fromRGB(0, 255, 0)
         guiElements.walkspeedStatusIndicator.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
         
-        -- Apply walkspeed
+        -- Apply walkspeed with smooth acceleration
         if localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            -- Apply multiple times to ensure it takes effect
-            for i = 1, 5 do
-                task.spawn(function()
-                    localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = walkspeed
-                    task.wait(0.1)
-                    localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = walkspeed
-                end)
-                task.wait(0.05)
-            end
+            local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+            local currentSpeed = humanoid.WalkSpeed
+            local targetSpeed = walkspeed
+            local duration = 0.35 -- Smooth acceleration over time
+            
+            -- Immediate response for feedback
+            humanoid.WalkSpeed = currentSpeed + (targetSpeed - currentSpeed) * 0.3
+            
+            -- Smooth transition to target speed
+            task.spawn(function()
+                local startTime = tick()
+                local endTime = startTime + duration
+                
+                while tick() < endTime and walkspeedActive do
+                    -- Calculate progress with smoothstep easing
+                    local progress = (tick() - startTime) / duration
+                    progress = math.clamp(progress, 0, 1)
+                    local easedProgress = progress * progress * (3 - 2 * progress)
+                    
+                    -- Apply interpolated speed
+                    local newSpeed = currentSpeed + (targetSpeed - currentSpeed) * easedProgress
+                    if humanoid and humanoid.Parent then
+                        humanoid.WalkSpeed = newSpeed
+                    else
+                        break
+                    end
+                    
+                    -- High frequency updates for smoothness
+                    task.wait(1/60)
+                end
+                
+                -- Final application at exact target
+                if walkspeedActive and humanoid and humanoid.Parent then
+                    humanoid.WalkSpeed = targetSpeed
+                end
+            end)
         end
     else
-        -- Turn off walkspeed
+        -- Turn off walkspeed with visual feedback
         guiElements.walkspeedStatusText.Text = "OFF (Press "..keyNames[walkspeedKey]..")"
         guiElements.walkspeedStatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
         guiElements.walkspeedStatusIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
         
-        -- Reset walkspeed to original value
+        -- Reset walkspeed to original value with smooth deceleration
         if localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            if originalWalkspeed then
-                localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = originalWalkspeed
-            else
-                localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16 -- Default
-            end
+            local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+            local currentSpeed = humanoid.WalkSpeed
+            local targetSpeed = originalWalkspeed or 16
+            local duration = 0.3 -- Slightly faster deceleration
+            
+            -- Smooth transition back to normal speed
+            task.spawn(function()
+                local startTime = tick()
+                local endTime = startTime + duration
+                
+                while tick() < endTime and not walkspeedActive do
+                    -- Calculate progress with smoothstep easing for deceleration
+                    local progress = (tick() - startTime) / duration
+                    progress = math.clamp(progress, 0, 1)
+                    local easedProgress = progress * progress * (3 - 2 * progress)
+                    
+                    -- Apply interpolated speed for deceleration
+                    local newSpeed = currentSpeed + (targetSpeed - currentSpeed) * easedProgress
+                    if humanoid and humanoid.Parent then
+                        humanoid.WalkSpeed = newSpeed
+                    else
+                        break
+                    end
+                    
+                    -- High frequency updates for smoothness
+                    task.wait(1/60)
+                end
+                
+                -- Final application at exact target
+                if not walkspeedActive and humanoid and humanoid.Parent then
+                    humanoid.WalkSpeed = targetSpeed
+                end
+            end)
         end
     end
     
     print("Walkspeed toggled to: " .. tostring(walkspeedActive) .. ", value: " .. tostring(walkspeed))
 end
 
--- Set up a continuous walkspeed update loop when active
-local walkspeedUpdateConnection = RunService.Heartbeat:Connect(function()
-    if walkspeedActive and localPlayer and localPlayer.Character then
-        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid and humanoid.WalkSpeed ~= walkspeed then
-            humanoid.WalkSpeed = walkspeed
-        end
+-- Enhanced super-smooth walkspeed system
+local function createWalkspeedThreads()
+    -- Variables for smooth transitions
+    local currentTargetSpeed = walkspeed
+    local transitionDuration = 0.3 -- Duration of smooth transition in seconds
+    local updateFrequency = 60 -- Updates per second for ultra-smooth transition
+    local lastGameSetSpeed = nil
+    local isTransitioning = false
+    
+    -- Easing function for smooth transitions (smoothstep)
+    local function smoothstep(t)
+        return t * t * (3 - 2 * t) -- Smooth acceleration and deceleration
     end
-end)
+    
+    -- Function to smoothly transition between speeds
+    local function smoothTransition(from, to, duration)
+        if isTransitioning then return end
+        isTransitioning = true
+        
+        local steps = math.floor(duration * updateFrequency)
+        local startTime = tick()
+        local endTime = startTime + duration
+        
+        -- Create separate thread for the transition
+        task.spawn(function()
+            while tick() < endTime and walkspeedActive do
+                if localPlayer.Character then
+                    local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+                    if humanoid then
+                        -- Calculate progress through transition
+                        local progress = (tick() - startTime) / duration
+                        progress = math.clamp(progress, 0, 1)
+                        
+                        -- Apply easing function
+                        local easedProgress = smoothstep(progress)
+                        
+                        -- Calculate and apply interpolated speed
+                        local newSpeed = from + (to - from) * easedProgress
+                        humanoid.WalkSpeed = newSpeed
+                        
+                        -- Ultra-smooth update rate
+                        task.wait(1/updateFrequency)
+                    else
+                        break
+                    end
+                else
+                    break
+                end
+            end
+            
+            -- Ensure we end exactly at target value
+            if walkspeedActive and localPlayer.Character then
+                local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then humanoid.WalkSpeed = to end
+            end
+            
+            isTransitioning = false
+        end)
+    end
+    
+    -- Thread 1: Primary high-precision application via RenderStepped
+    local walkspeedRenderConnection = RunService.RenderStepped:Connect(function()
+        if walkspeedActive and localPlayer and localPlayer.Character then
+            local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                -- Detect if target speed has changed (user moved slider)
+                if currentTargetSpeed ~= walkspeed and not isTransitioning then
+                    local oldTarget = currentTargetSpeed
+                    currentTargetSpeed = walkspeed
+                    smoothTransition(oldTarget, currentTargetSpeed, transitionDuration)
+                end
+                
+                -- Handle game overwrites more intelligently
+                if not isTransitioning and math.abs(humanoid.WalkSpeed - currentTargetSpeed) > 0.5 then
+                    -- Game may have set a new speed - detect significant changes
+                    if lastGameSetSpeed == nil or math.abs(lastGameSetSpeed - humanoid.WalkSpeed) > 5 then
+                        lastGameSetSpeed = humanoid.WalkSpeed
+                        print("Detected game speed change, smoothly transitioning to desired speed")
+                        smoothTransition(humanoid.WalkSpeed, currentTargetSpeed, transitionDuration/2)
+                    else
+                        -- Minor correction, apply directly
+                        humanoid.WalkSpeed = currentTargetSpeed
+                    end
+                end
+            end
+        end
+    end)
+    table.insert(connections, walkspeedRenderConnection)
+    
+    -- Thread 2: Secondary maintenance via Heartbeat (different timing than RenderStepped)
+    local walkspeedUpdateConnection = RunService.Heartbeat:Connect(function()
+        if walkspeedActive and localPlayer and localPlayer.Character and not isTransitioning then
+            local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                -- Gentle maintenance - only correct if significantly off target
+                if math.abs(humanoid.WalkSpeed - currentTargetSpeed) > 1 then
+                    humanoid.WalkSpeed = currentTargetSpeed
+                end
+            end
+        end
+    end)
+    table.insert(connections, walkspeedUpdateConnection)
+    
+    -- Thread 3: Background stability monitoring with progressive response
+    task.spawn(function()
+        local consecutiveOverwrites = 0
+        
+        while true do
+            if walkspeedActive and localPlayer and localPlayer.Character and not isTransitioning then
+                local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    -- Is the game aggressively fighting our speed settings?
+                    if math.abs(humanoid.WalkSpeed - currentTargetSpeed) > 2 then
+                        consecutiveOverwrites = consecutiveOverwrites + 1
+                        
+                        -- Escalating response based on how persistent the game is
+                        if consecutiveOverwrites > 3 then
+                            print("Game is persistently overriding walkspeed, applying escalating correction")
+                            
+                            -- Staggered reapplication pattern to outsmart game logic
+                            for i = 1, 5 do
+                                task.spawn(function()
+                                    -- Staggered timing to bypass rate limiters
+                                    task.wait(i * 0.02 + math.random() * 0.01)
+                                    if walkspeedActive and localPlayer.Character then
+                                        local h = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+                                        if h then h.WalkSpeed = currentTargetSpeed end
+                                    end
+                                end)
+                            end
+                            
+                            -- Reset counter after aggressive correction
+                            consecutiveOverwrites = 0
+                        else
+                            -- Standard correction
+                            humanoid.WalkSpeed = currentTargetSpeed
+                        end
+                    else
+                        -- Speed is stable, reset counter
+                        consecutiveOverwrites = math.max(0, consecutiveOverwrites - 1)
+                    end
+                end
+            end
+            task.wait(0.1) -- Check 10 times per second
+        end
+    end)
+    
+    -- Thread 4: Special handling for extreme cases
+    task.spawn(function()
+        while true do
+            if walkspeedActive and localPlayer and localPlayer.Character then
+                local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+                
+                -- Handle extreme speed discrepancies
+                if humanoid and math.abs(humanoid.WalkSpeed - currentTargetSpeed) > 20 then
+                    print("Critical walkspeed discrepancy detected")
+                    
+                    -- Try to determine if it's a character change or a game override
+                    if humanoid.WalkSpeed == 16 then -- Default Roblox walkspeed
+                        -- Likely a new character or reset - use normal transition
+                        smoothTransition(16, currentTargetSpeed, transitionDuration/2)
+                    else
+                        -- Possible aggressive game override - apply immediate correction
+                        humanoid.WalkSpeed = currentTargetSpeed
+                    end
+                end
+            end
+            task.wait(0.3) -- Less frequent check for extreme cases
+        end
+    end)
+    
+    print("Super-smooth walkspeed system initialized")
+end
 
--- Store the connection for cleanup
-table.insert(connections, walkspeedUpdateConnection)
+-- Initialize the walkspeed threads
+createWalkspeedThreads()
 
--- Connect to the character added event for respawns
+-- Variable no longer in this scope, removed reference
+
+-- Connect to the character added event for respawns with smooth transition
 local characterAddedConnection = localPlayer.CharacterAdded:Connect(function(character)
     task.wait(0.5) -- Wait for character to fully load
     
     if walkspeedActive then
         local humanoid = character:WaitForChild("Humanoid")
         if humanoid then
+            -- First apply immediately to ensure some effect
             humanoid.WalkSpeed = walkspeed
-            print("Applied walkspeed after respawn:", walkspeed)
+            
+            -- Then start a smooth transition from default to target
+            task.spawn(function()
+                -- Smoothly accelerate from default speed to target walkspeed
+                local defaultSpeed = 16 -- Default Roblox speed
+                local targetSpeed = walkspeed
+                local duration = 0.4 -- Slightly longer for respawn transition
+                local startTime = tick()
+                local endTime = startTime + duration
+                
+                -- Smooth acceleration after respawn
+                while tick() < endTime and walkspeedActive do
+                    if humanoid and humanoid.Parent then
+                        -- Calculate smoothed progress
+                        local progress = (tick() - startTime) / duration
+                        progress = math.clamp(progress, 0, 1)
+                        
+                        -- Use easing function for smooth acceleration
+                        local easedProgress = progress * progress * (3 - 2 * progress)
+                        
+                        -- Apply interpolated speed for super smooth acceleration
+                        local newSpeed = defaultSpeed + (targetSpeed - defaultSpeed) * easedProgress
+                        humanoid.WalkSpeed = newSpeed
+                        
+                        -- Update at 60fps for ultra smooth visual transition
+                        task.wait(1/60)
+                    else
+                        break
+                    end
+                end
+                
+                -- Final application at exact target speed
+                if walkspeedActive and humanoid and humanoid.Parent then
+                    humanoid.WalkSpeed = targetSpeed
+                end
+            end)
+            print("Smoothly applying walkspeed after respawn to:", walkspeed)
         end
     end
 end)
@@ -1031,6 +1309,11 @@ local inputConnection = UserInputService.InputBegan:Connect(function(input, game
         -- Check if the walkspeed key was pressed
         if input.KeyCode == walkspeedKey then
             toggleWalkspeed()
+        end
+        
+        -- Check if the GUI toggle key (Right Ctrl) was pressed
+        if input.KeyCode == toggleGuiKey then
+            toggleGuiVisibility()
         end
     end
 end)
@@ -1079,6 +1362,7 @@ table.insert(connections, cameraConnection)
 print("=== ghst.lol Camera Lock Script ===")
 print("Press 'C' to toggle camera lock on/off")
 print("Press 'V' to toggle walkspeed mode")
+print("Press 'Right Ctrl' to toggle GUI visibility")
 print("Adjust smoothness and walkspeed with the sliders")
 print("Change keybinds using the 'Change' buttons in the GUI")
 print("Use the X button to unload the script and reset everything")
@@ -1122,7 +1406,7 @@ function unloadScript()
     end
     
     -- Print unload message
-    print("=== ghst.lol Camera Lock Script has been unloaded ===")
+    print("=== ghst.lol has been unloaded ===")
 end
 
 -- Create the GUI to start the script
