@@ -15,17 +15,19 @@ local camera = workspace.CurrentCamera
 -- Settings
 local maxDistance = 200  -- Maximum distance to target players
 local smoothness = 0.5   -- Initial smoothness for camera movements (1 = instant, 0 = no movement)
-local flySpeed = 100     -- Initial flying speed (max 500)
+local walkspeed = 100    -- Initial walkspeed (max 180)
+local originalWalkspeed = nil  -- To store the original walkspeed
 
 -- Default key bindings
 local camlockKey = Enum.KeyCode.C  -- Default key to toggle camera lock
-local flyKey = Enum.KeyCode.X      -- Default key to toggle fly
+local walkspeedKey = Enum.KeyCode.V  -- Default key to toggle walkspeed
 
 -- Key names for display
 local keyNames = {
     [Enum.KeyCode.C] = "C",
     [Enum.KeyCode.X] = "X",
     [Enum.KeyCode.F] = "F",
+    [Enum.KeyCode.V] = "V",
     [Enum.KeyCode.RightControl] = "Right Ctrl",
     -- Add more keys as needed
 }
@@ -35,15 +37,7 @@ local isTargeting = false  -- Is camera lock active?
 local targetPlayer = nil   -- Which player we're targeting
 local highlight = nil      -- Highlight effect on target
 local guiVisible = true    -- Is our GUI visible?
-local isFlying = false     -- Is fly mode active?
-local flyKeys = {          -- Track which keys are being pressed for flying
-    W = false,
-    A = false,
-    S = false,
-    D = false,
-    Space = false,
-    LeftShift = false
-}
+local walkspeedActive = false -- Is walkspeed active?
 local connections = {}     -- Store all connections to disconnect them later
 
 -- GUI elements
@@ -127,7 +121,7 @@ local function createGui()
     local bottomFrame = Instance.new("Frame")
     bottomFrame.Size = UDim2.new(1, 0, 0, 10)
     bottomFrame.Position = UDim2.new(0, 0, 1, -10)
-    bottomFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    bottomFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
     bottomFrame.BorderSizePixel = 0
     bottomFrame.ZIndex = 2
     bottomFrame.Parent = titleBar
@@ -212,7 +206,7 @@ local function createGui()
     titleText.ZIndex = 3
     titleText.Parent = titleBar
     
-    -- Subtitle text (removed as requested)
+    -- Subtitle text (empty as requested)
     local subtitleText = Instance.new("TextLabel")
     subtitleText.Name = "SubtitleText"
     subtitleText.Size = UDim2.new(0, 100, 0, 20)
@@ -336,7 +330,7 @@ local function createGui()
     statusIndicator.Name = "StatusIndicator"
     statusIndicator.Size = UDim2.new(0, 10, 0, 10)
     statusIndicator.Position = UDim2.new(0.53, 0, 0.5, -5)
-    statusIndicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Red when off
     statusIndicator.BorderSizePixel = 0
     statusIndicator.Parent = statusContainer
     
@@ -381,463 +375,504 @@ local function createGui()
         changeCamlockKeyButton.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
     end)
     
-    -- Camera Lock Smoothness label directly under the status
+    -- Section for smoothness slider
+    local smoothnessSection = Instance.new("Frame")
+    smoothnessSection.Name = "SmoothnessSection"
+    smoothnessSection.Size = UDim2.new(1, 0, 0, 50)
+    smoothnessSection.Position = UDim2.new(0, 0, 0, 60)
+    smoothnessSection.BackgroundTransparency = 1
+    smoothnessSection.Parent = camlockSection
+    
+    -- Smoothness label
     local smoothnessLabel = Instance.new("TextLabel")
     smoothnessLabel.Name = "SmoothnessLabel"
-    smoothnessLabel.Size = UDim2.new(0.7, 0, 0, 20)
-    smoothnessLabel.Position = UDim2.new(0, 0, 0, 60) -- Position below status container
+    smoothnessLabel.Size = UDim2.new(1, 0, 0, 20)
     smoothnessLabel.BackgroundTransparency = 1
     smoothnessLabel.Text = "SMOOTHNESS"
     smoothnessLabel.Font = Enum.Font.GothamBold
     smoothnessLabel.TextSize = 12
-    smoothnessLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- Pure white
+    smoothnessLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     smoothnessLabel.TextXAlignment = Enum.TextXAlignment.Left
-    smoothnessLabel.Parent = camlockSection
+    smoothnessLabel.Parent = smoothnessSection
     
-    -- Camera Lock Smoothness value
+    -- Smoothness value display
     local smoothnessValue = Instance.new("TextLabel")
     smoothnessValue.Name = "SmoothnessValue"
-    smoothnessValue.Size = UDim2.new(0.3, 0, 0, 20)
-    smoothnessValue.Position = UDim2.new(0.7, 0, 0, 60) -- Aligned with smoothness label
+    smoothnessValue.Size = UDim2.new(0, 40, 0, 20)
+    smoothnessValue.Position = UDim2.new(1, -40, 0, 0)
     smoothnessValue.BackgroundTransparency = 1
     smoothnessValue.Text = tostring(smoothness)
     smoothnessValue.Font = Enum.Font.GothamSemibold
     smoothnessValue.TextSize = 12
-    smoothnessValue.TextColor3 = Color3.fromRGB(200, 200, 200)
+    smoothnessValue.TextColor3 = Color3.fromRGB(255, 255, 255)
     smoothnessValue.TextXAlignment = Enum.TextXAlignment.Right
-    smoothnessValue.Parent = camlockSection
+    smoothnessValue.Parent = smoothnessSection
     
-    -- Camera Lock Smoothness slider background
-    local smoothnessSliderBg = Instance.new("Frame")
-    smoothnessSliderBg.Name = "SmoothnessSliderBg"
-    smoothnessSliderBg.Size = UDim2.new(1, 0, 0, 20)
-    smoothnessSliderBg.Position = UDim2.new(0, 0, 0, 85) -- Below smoothness label
-    smoothnessSliderBg.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    smoothnessSliderBg.BorderSizePixel = 0
-    smoothnessSliderBg.Parent = camlockSection
+    -- Smoothness slider background
+    local smoothnessSliderBackground = Instance.new("Frame")
+    smoothnessSliderBackground.Name = "SliderBackground"
+    smoothnessSliderBackground.Size = UDim2.new(1, 0, 0, 6)
+    smoothnessSliderBackground.Position = UDim2.new(0, 0, 0, 30)
+    smoothnessSliderBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    smoothnessSliderBackground.BorderSizePixel = 0
+    smoothnessSliderBackground.Parent = smoothnessSection
     
-    -- Round corners of slider background
-    local smoothnessBgCorner = Instance.new("UICorner")
-    smoothnessBgCorner.CornerRadius = UDim.new(0, 6)
-    smoothnessBgCorner.Parent = smoothnessSliderBg
+    -- Round slider background corners
+    local sliderCorner = Instance.new("UICorner")
+    sliderCorner.CornerRadius = UDim.new(0, 3)
+    sliderCorner.Parent = smoothnessSliderBackground
     
-    -- Camera Lock Smoothness slider
-    local smoothnessSlider = Instance.new("Frame")
-    smoothnessSlider.Name = "SmoothnessSlider"
-    smoothnessSlider.Size = UDim2.new(0.94, 0, 0, 4)
-    smoothnessSlider.Position = UDim2.new(0.03, 0, 0.5, -2) -- Center in background
-    smoothnessSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    smoothnessSlider.BorderSizePixel = 0
-    smoothnessSlider.Parent = smoothnessSliderBg
+    -- Smoothness slider fill (white)
+    local smoothnessSliderFill = Instance.new("Frame")
+    smoothnessSliderFill.Name = "SliderFill"
+    smoothnessSliderFill.Size = UDim2.new(smoothness, 0, 1, 0)
+    smoothnessSliderFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- White fill
+    smoothnessSliderFill.BorderSizePixel = 0
+    smoothnessSliderFill.Parent = smoothnessSliderBackground
     
-    -- Round corners of smoothness slider
-    local smoothnessSliderCorner = Instance.new("UICorner")
-    smoothnessSliderCorner.CornerRadius = UDim.new(0, 2)
-    smoothnessSliderCorner.Parent = smoothnessSlider
+    -- Round slider fill corners
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0, 3)
+    fillCorner.Parent = smoothnessSliderFill
     
-    -- Camera Lock Smoothness progress
-    local smoothnessProgress = Instance.new("Frame")
-    smoothnessProgress.Name = "Progress"
-    smoothnessProgress.Size = UDim2.new(smoothness, 0, 1, 0) -- Based on current smoothness
-    smoothnessProgress.BackgroundColor3 = Color3.fromRGB(240, 30, 60)
-    smoothnessProgress.BorderSizePixel = 0
-    smoothnessProgress.Parent = smoothnessSlider
+    -- Smoothness slider knob
+    local smoothnessSliderKnob = Instance.new("Frame")
+    smoothnessSliderKnob.Name = "SliderKnob"
+    smoothnessSliderKnob.Size = UDim2.new(0, 16, 0, 16)
+    smoothnessSliderKnob.Position = UDim2.new(smoothness, 0, 0.5, 0)
+    smoothnessSliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+    smoothnessSliderKnob.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+    smoothnessSliderKnob.BorderSizePixel = 0
+    smoothnessSliderKnob.ZIndex = 2
+    smoothnessSliderKnob.Parent = smoothnessSliderBackground
     
-    -- Round corners of progress bar
-    local smoothnessProgressCorner = Instance.new("UICorner")
-    smoothnessProgressCorner.CornerRadius = UDim.new(0, 2)
-    smoothnessProgressCorner.Parent = smoothnessProgress
+    -- Round the knob
+    local knobCorner = Instance.new("UICorner")
+    knobCorner.CornerRadius = UDim.new(1, 0)
+    knobCorner.Parent = smoothnessSliderKnob
     
-    -- Camera Lock Smoothness knob
-    local smoothnessKnob = Instance.new("Frame")
-    smoothnessKnob.Name = "Knob"
-    smoothnessKnob.Size = UDim2.new(0, 16, 0, 16)
-    smoothnessKnob.Position = UDim2.new(smoothness, -8, 0.5, -8) -- Position based on current smoothness
-    smoothnessKnob.BackgroundColor3 = Color3.fromRGB(240, 240, 250)
-    smoothnessKnob.BorderSizePixel = 0
-    smoothnessKnob.ZIndex = 2
-    smoothnessKnob.Parent = smoothnessSlider
+    -- =============== WALKSPEED SECTION WITH SLIDER ===============
+    local walkspeedSection = Instance.new("Frame")
+    walkspeedSection.Name = "WalkspeedSection"
+    walkspeedSection.Size = UDim2.new(1, 0, 0, 110) -- Taller to fit speed slider
+    walkspeedSection.Position = UDim2.new(0, 0, 0, 120) -- Position after camlock section
+    walkspeedSection.BackgroundTransparency = 1
+    walkspeedSection.Parent = contentContainer
     
-    -- Make knob circular
-    local smoothnessKnobCorner = Instance.new("UICorner")
-    smoothnessKnobCorner.CornerRadius = UDim.new(1, 0)
-    smoothnessKnobCorner.Parent = smoothnessKnob
+    -- Walkspeed section title
+    local walkspeedTitle = Instance.new("TextLabel")
+    walkspeedTitle.Name = "SectionTitle"
+    walkspeedTitle.Size = UDim2.new(1, 0, 0, 20)
+    walkspeedTitle.BackgroundTransparency = 1
+    walkspeedTitle.Text = "WALKSPEED"
+    walkspeedTitle.Font = Enum.Font.GothamBold
+    walkspeedTitle.TextSize = 12
+    walkspeedTitle.TextColor3 = Color3.fromRGB(255, 255, 255) -- Pure white
+    walkspeedTitle.TextXAlignment = Enum.TextXAlignment.Left
+    walkspeedTitle.Parent = walkspeedSection
     
-    -- Add shadow to knob
-    local smoothnessKnobShadow = Instance.new("Frame")
-    smoothnessKnobShadow.Name = "Shadow"
-    smoothnessKnobShadow.Size = UDim2.new(1, 4, 1, 4)
-    smoothnessKnobShadow.Position = UDim2.new(0, -2, 0, -2)
-    smoothnessKnobShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    smoothnessKnobShadow.BackgroundTransparency = 0.7
-    smoothnessKnobShadow.BorderSizePixel = 0
-    smoothnessKnobShadow.ZIndex = 1
-    smoothnessKnobShadow.Parent = smoothnessKnob
-    
-    -- Round shadow
-    local smoothnessKnobShadowCorner = Instance.new("UICorner")
-    smoothnessKnobShadowCorner.CornerRadius = UDim.new(1, 0)
-    smoothnessKnobShadowCorner.Parent = smoothnessKnobShadow
-    
-    -- =============== FLY MODE SECTION WITH SLIDER ===============
-    local flySection = Instance.new("Frame")
-    flySection.Name = "FlySection"
-    flySection.Size = UDim2.new(1, 0, 0, 110) -- Taller to fit fly speed slider
-    flySection.Position = UDim2.new(0, 0, 0, 120) -- Position below camlock section
-    flySection.BackgroundTransparency = 1
-    flySection.Parent = contentContainer
-    
-    -- Fly Mode section title
-    local flyTitle = Instance.new("TextLabel")
-    flyTitle.Name = "SectionTitle"
-    flyTitle.Size = UDim2.new(1, 0, 0, 20)
-    flyTitle.BackgroundTransparency = 1
-    flyTitle.Text = "FLY MODE"
-    flyTitle.Font = Enum.Font.GothamBold
-    flyTitle.TextSize = 12
-    flyTitle.TextColor3 = Color3.fromRGB(255, 255, 255) -- Pure white
-    flyTitle.TextXAlignment = Enum.TextXAlignment.Left
-    flyTitle.Parent = flySection
-    
-    -- Fly Mode Status container
-    local flyStatusContainer = Instance.new("Frame")
-    flyStatusContainer.Name = "FlyStatusContainer"
-    flyStatusContainer.Size = UDim2.new(1, 0, 0, 30)
-    flyStatusContainer.Position = UDim2.new(0, 0, 0, 20)
-    flyStatusContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 35) -- Darker background
-    flyStatusContainer.BorderSizePixel = 0
-    flyStatusContainer.Parent = flySection
+    -- Walkspeed Status container
+    local walkspeedStatusContainer = Instance.new("Frame")
+    walkspeedStatusContainer.Name = "WalkspeedStatusContainer"
+    walkspeedStatusContainer.Size = UDim2.new(1, 0, 0, 30)
+    walkspeedStatusContainer.Position = UDim2.new(0, 0, 0, 20)
+    walkspeedStatusContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 35) -- Darker background
+    walkspeedStatusContainer.BorderSizePixel = 0
+    walkspeedStatusContainer.Parent = walkspeedSection
     
     -- Round the corners
-    local flyStatusCorner = statusCorner:Clone()
-    flyStatusCorner.Parent = flyStatusContainer
+    local walkspeedStatusCorner = statusCorner:Clone()
+    walkspeedStatusCorner.Parent = walkspeedStatusContainer
     
-    -- Status text for fly
-    local flyStatusText = Instance.new("TextLabel")
-    flyStatusText.Name = "FlyStatusText"
-    flyStatusText.Size = UDim2.new(0.65, 0, 1, 0)
-    flyStatusText.Position = UDim2.new(0.03, 0, 0, 0)
-    flyStatusText.BackgroundTransparency = 1
-    flyStatusText.Text = "OFF (Press "..keyNames[flyKey]..")"
-    flyStatusText.Font = Enum.Font.Gotham
-    flyStatusText.TextSize = 13
-    flyStatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
-    flyStatusText.TextXAlignment = Enum.TextXAlignment.Left
-    flyStatusText.Parent = flyStatusContainer
+    -- Walkspeed status text
+    local walkspeedStatusText = Instance.new("TextLabel")
+    walkspeedStatusText.Name = "WalkspeedStatusText"
+    walkspeedStatusText.Size = UDim2.new(0.65, 0, 1, 0)
+    walkspeedStatusText.Position = UDim2.new(0.03, 0, 0, 0)
+    walkspeedStatusText.BackgroundTransparency = 1
+    walkspeedStatusText.Text = "OFF (Press "..keyNames[walkspeedKey]..")"
+    walkspeedStatusText.Font = Enum.Font.Gotham
+    walkspeedStatusText.TextSize = 13
+    walkspeedStatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    walkspeedStatusText.TextXAlignment = Enum.TextXAlignment.Left
+    walkspeedStatusText.Parent = walkspeedStatusContainer
     
-    -- Fly status indicator (circle)
-    local flyStatusIndicator = statusIndicator:Clone()
-    flyStatusIndicator.Parent = flyStatusContainer
+    -- Walkspeed status indicator (circle)
+    local walkspeedStatusIndicator = Instance.new("Frame")
+    walkspeedStatusIndicator.Name = "WalkspeedStatusIndicator"
+    walkspeedStatusIndicator.Size = UDim2.new(0, 12, 0, 12)
+    walkspeedStatusIndicator.Position = UDim2.new(0.97, 0, 0.5, 0)
+    walkspeedStatusIndicator.AnchorPoint = Vector2.new(1, 0.5)
+    walkspeedStatusIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Red when off
+    walkspeedStatusIndicator.BorderSizePixel = 0
+    walkspeedStatusIndicator.Parent = walkspeedStatusContainer
     
-    -- Change fly key button
-    local changeFlyKeyButton = changeCamlockKeyButton:Clone()
-    changeFlyKeyButton.Name = "ChangeFlyKey"
-    changeFlyKeyButton.Parent = flyStatusContainer
+    -- Make the indicator circular
+    local walkspeedIndicatorCorner = Instance.new("UICorner")
+    walkspeedIndicatorCorner.CornerRadius = UDim.new(1, 0)
+    walkspeedIndicatorCorner.Parent = walkspeedStatusIndicator
     
-    -- Fly Speed label directly under the status
-    local flySpeedLabel = Instance.new("TextLabel")
-    flySpeedLabel.Name = "FlySpeedLabel"
-    flySpeedLabel.Size = UDim2.new(0.7, 0, 0, 20)
-    flySpeedLabel.Position = UDim2.new(0, 0, 0, 60) -- Position below status container
-    flySpeedLabel.BackgroundTransparency = 1
-    flySpeedLabel.Text = "FLY SPEED"
-    flySpeedLabel.Font = Enum.Font.GothamBold
-    flySpeedLabel.TextSize = 12
-    flySpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- Pure white
-    flySpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
-    flySpeedLabel.Parent = flySection
+    -- Store walkspeed UI elements in the guiElements table for access in other functions
+    guiElements.walkspeedStatusText = walkspeedStatusText
+    guiElements.walkspeedStatusIndicator = walkspeedStatusIndicator
     
-    -- Fly Speed value
-    local flySpeedValue = Instance.new("TextLabel")
-    flySpeedValue.Name = "FlySpeedValue"
-    flySpeedValue.Size = UDim2.new(0.3, 0, 0, 20)
-    flySpeedValue.Position = UDim2.new(0.7, 0, 0, 60) -- Aligned with fly speed label
-    flySpeedValue.BackgroundTransparency = 1
-    flySpeedValue.Text = tostring(flySpeed)
-    flySpeedValue.Font = Enum.Font.GothamSemibold
-    flySpeedValue.TextSize = 12
-    flySpeedValue.TextColor3 = Color3.fromRGB(200, 200, 200)
-    flySpeedValue.TextXAlignment = Enum.TextXAlignment.Right
-    flySpeedValue.Parent = flySection
+    -- Change walkspeed key button
+    local changeWalkspeedKeyButton = changeCamlockKeyButton:Clone()
+    changeWalkspeedKeyButton.Name = "ChangeWalkspeedKey"
+    changeWalkspeedKeyButton.Parent = walkspeedStatusContainer
     
-    -- Fly Speed slider background
-    local flySpeedSliderBg = Instance.new("Frame")
-    flySpeedSliderBg.Name = "FlySpeedSliderBg"
-    flySpeedSliderBg.Size = UDim2.new(1, 0, 0, 20)
-    flySpeedSliderBg.Position = UDim2.new(0, 0, 0, 85) -- Below fly speed label
-    flySpeedSliderBg.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    flySpeedSliderBg.BorderSizePixel = 0
-    flySpeedSliderBg.Parent = flySection
+    -- Add walkspeed slider section
+    local walkspeedSliderSection = Instance.new("Frame")
+    walkspeedSliderSection.Name = "WalkspeedSliderSection"
+    walkspeedSliderSection.Size = UDim2.new(1, 0, 0, 50)
+    walkspeedSliderSection.Position = UDim2.new(0, 0, 0, 60) -- Below status container
+    walkspeedSliderSection.BackgroundTransparency = 1
+    walkspeedSliderSection.Parent = walkspeedSection
     
-    -- Round corners of slider background
-    local flySpeedBgCorner = Instance.new("UICorner")
-    flySpeedBgCorner.CornerRadius = UDim.new(0, 6)
-    flySpeedBgCorner.Parent = flySpeedSliderBg
+    -- Speed slider label
+    local walkspeedSliderLabel = Instance.new("TextLabel")
+    walkspeedSliderLabel.Name = "SpeedLabel"
+    walkspeedSliderLabel.Size = UDim2.new(1, 0, 0, 20)
+    walkspeedSliderLabel.BackgroundTransparency = 1
+    walkspeedSliderLabel.Text = "WALKSPEED"
+    walkspeedSliderLabel.Font = Enum.Font.GothamBold
+    walkspeedSliderLabel.TextSize = 12
+    walkspeedSliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- Pure white
+    walkspeedSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+    walkspeedSliderLabel.Parent = walkspeedSliderSection
     
-    -- Fly Speed slider
-    local flySpeedSlider = Instance.new("Frame")
-    flySpeedSlider.Name = "FlySpeedSlider"
-    flySpeedSlider.Size = UDim2.new(0.94, 0, 0, 4)
-    flySpeedSlider.Position = UDim2.new(0.03, 0, 0.5, -2) -- Center in background
-    flySpeedSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    flySpeedSlider.BorderSizePixel = 0
-    flySpeedSlider.Parent = flySpeedSliderBg
+    -- Speed value display
+    local walkspeedValue = Instance.new("TextLabel")
+    walkspeedValue.Name = "SpeedValue"
+    walkspeedValue.Size = UDim2.new(0, 40, 0, 20)
+    walkspeedValue.Position = UDim2.new(1, -40, 0, 0)
+    walkspeedValue.BackgroundTransparency = 1
+    walkspeedValue.Text = tostring(walkspeed)
+    walkspeedValue.Font = Enum.Font.GothamSemibold
+    walkspeedValue.TextSize = 12
+    walkspeedValue.TextColor3 = Color3.fromRGB(255, 255, 255) -- Pure white
+    walkspeedValue.TextXAlignment = Enum.TextXAlignment.Right
+    walkspeedValue.Parent = walkspeedSliderSection
     
-    -- Round corners of fly speed slider
-    local flySpeedSliderCorner = Instance.new("UICorner")
-    flySpeedSliderCorner.CornerRadius = UDim.new(0, 2)
-    flySpeedSliderCorner.Parent = flySpeedSlider
+    -- Speed slider background
+    local walkspeedSliderBackground = Instance.new("Frame")
+    walkspeedSliderBackground.Name = "SpeedSliderBackground"
+    walkspeedSliderBackground.Size = UDim2.new(1, 0, 0, 6)
+    walkspeedSliderBackground.Position = UDim2.new(0, 0, 0, 30)
+    walkspeedSliderBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    walkspeedSliderBackground.BorderSizePixel = 0
+    walkspeedSliderBackground.Parent = walkspeedSliderSection
     
-    -- Fly Speed progress
-    local flySpeedProgress = Instance.new("Frame")
-    flySpeedProgress.Name = "Progress"
-    flySpeedProgress.Size = UDim2.new(flySpeed/500, 0, 1, 0) -- Based on current fly speed (max 500)
-    flySpeedProgress.BackgroundColor3 = Color3.fromRGB(240, 30, 60)
-    flySpeedProgress.BorderSizePixel = 0
-    flySpeedProgress.Parent = flySpeedSlider
+    -- Round slider background corners
+    local walkspeedSliderCorner = Instance.new("UICorner")
+    walkspeedSliderCorner.CornerRadius = UDim.new(0, 3)
+    walkspeedSliderCorner.Parent = walkspeedSliderBackground
     
-    -- Round corners of progress bar
-    local flySpeedProgressCorner = Instance.new("UICorner")
-    flySpeedProgressCorner.CornerRadius = UDim.new(0, 2)
-    flySpeedProgressCorner.Parent = flySpeedProgress
+    -- Speed slider fill (white)
+    local walkspeedSliderFill = Instance.new("Frame")
+    walkspeedSliderFill.Name = "SpeedSliderFill"
+    walkspeedSliderFill.Size = UDim2.new(walkspeed / 180, 0, 1, 0) -- Scale based on walkspeed (max 180)
+    walkspeedSliderFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- White fill
+    walkspeedSliderFill.BorderSizePixel = 0
+    walkspeedSliderFill.Parent = walkspeedSliderBackground
     
-    -- Fly Speed knob
-    local flySpeedKnob = Instance.new("Frame")
-    flySpeedKnob.Name = "Knob"
-    flySpeedKnob.Size = UDim2.new(0, 16, 0, 16)
-    flySpeedKnob.Position = UDim2.new(flySpeed/500, -8, 0.5, -8) -- Position based on current fly speed (max 500)
-    flySpeedKnob.BackgroundColor3 = Color3.fromRGB(240, 240, 250)
-    flySpeedKnob.BorderSizePixel = 0
-    flySpeedKnob.ZIndex = 2
-    flySpeedKnob.Parent = flySpeedSlider
+    -- Round slider fill corners
+    local walkspeedFillCorner = fillCorner:Clone()
+    walkspeedFillCorner.Parent = walkspeedSliderFill
     
-    -- Make knob circular
-    local flySpeedKnobCorner = Instance.new("UICorner")
-    flySpeedKnobCorner.CornerRadius = UDim.new(1, 0)
-    flySpeedKnobCorner.Parent = flySpeedKnob
+    -- Speed slider knob
+    local walkspeedSliderKnob = Instance.new("Frame")
+    walkspeedSliderKnob.Name = "SpeedSliderKnob"
+    walkspeedSliderKnob.Size = UDim2.new(0, 16, 0, 16)
+    walkspeedSliderKnob.Position = UDim2.new(walkspeed / 180, 0, 0.5, 0) -- Position based on walkspeed (max 180)
+    walkspeedSliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+    walkspeedSliderKnob.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+    walkspeedSliderKnob.BorderSizePixel = 0
+    walkspeedSliderKnob.ZIndex = 2
+    walkspeedSliderKnob.Parent = walkspeedSliderBackground
     
-    -- Add shadow to knob
-    local flySpeedKnobShadow = Instance.new("Frame")
-    flySpeedKnobShadow.Name = "Shadow"
-    flySpeedKnobShadow.Size = UDim2.new(1, 4, 1, 4)
-    flySpeedKnobShadow.Position = UDim2.new(0, -2, 0, -2)
-    flySpeedKnobShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    flySpeedKnobShadow.BackgroundTransparency = 0.7
-    flySpeedKnobShadow.BorderSizePixel = 0
-    flySpeedKnobShadow.ZIndex = 1
-    flySpeedKnobShadow.Parent = flySpeedKnob
+    -- Round the walkspeed knob
+    local walkspeedKnobCorner = Instance.new("UICorner")
+    walkspeedKnobCorner.CornerRadius = UDim.new(1, 0)
+    walkspeedKnobCorner.Parent = walkspeedSliderKnob
     
-    -- Round shadow
-    local flySpeedKnobShadowCorner = Instance.new("UICorner")
-    flySpeedKnobShadowCorner.CornerRadius = UDim.new(1, 0)
-    flySpeedKnobShadowCorner.Parent = flySpeedKnobShadow
+    -- Store speed slider elements in guiElements
+    guiElements.walkspeedValue = walkspeedValue
+    guiElements.walkspeedSliderFill = walkspeedSliderFill
+    guiElements.walkspeedSliderKnob = walkspeedSliderKnob
     
-    -- Store elements for later reference
-    guiElements = {
-        mainFrame = mainFrame,
-        statusText = statusText,
-        flyStatusText = flyStatusText,
-        smoothnessValue = smoothnessValue,
-        smoothnessSlider = smoothnessSlider,
-        smoothnessKnob = smoothnessKnob,
-        flySpeedValue = flySpeedValue,
-        flySpeedSlider = flySpeedSlider,
-        flySpeedKnob = flySpeedKnob,
-        changeCamlockKeyButton = changeCamlockKeyButton,
-        changeFlyKeyButton = changeFlyKeyButton
-    }
+    -- Store other GUI elements in the guiElements table for access in other functions
+    guiElements.mainFrame = mainFrame
+    guiElements.statusText = statusText
+    guiElements.statusIndicator = statusIndicator
+    guiElements.smoothnessValue = smoothnessValue
+    guiElements.smoothnessSliderFill = smoothnessSliderFill
+    guiElements.smoothnessSliderKnob = smoothnessSliderKnob
     
-    -- Make the smoothness slider draggable
-    local isDraggingSmoothnessSlider = false
-    
-    smoothnessSlider.InputBegan:Connect(function(input)
+    -- Make the sliders interactive
+    local sliderConnection = UserInputService.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDraggingSmoothnessSlider = true
-        end
-    end)
-    
-    smoothnessSlider.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDraggingSmoothnessSlider = false
-        end
-    end)
-    
-    -- Make the fly speed slider draggable
-    local isDraggingFlySpeedSlider = false
-    
-    flySpeedSlider.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDraggingFlySpeedSlider = true
-        end
-    end)
-    
-    flySpeedSlider.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDraggingFlySpeedSlider = false
-        end
-    end)
-    
-    -- Update sliders when mouse moves
-    UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            -- Update smoothness slider
-            if isDraggingSmoothnessSlider then
-                local mousePos = input.Position
-                local sliderPos = smoothnessSlider.AbsolutePosition
-                local sliderSize = smoothnessSlider.AbsoluteSize
+            -- Check if click is on smoothness slider
+            local smoothnessSliderPosition = smoothnessSliderBackground.AbsolutePosition
+            local smoothnessSliderSize = smoothnessSliderBackground.AbsoluteSize
+            local inputPosition = input.Position
+            
+            -- Check if click is on smoothness slider
+            if inputPosition.X >= smoothnessSliderPosition.X and 
+               inputPosition.X <= smoothnessSliderPosition.X + smoothnessSliderSize.X and
+               inputPosition.Y >= smoothnessSliderPosition.Y and
+               inputPosition.Y <= smoothnessSliderPosition.Y + smoothnessSliderSize.Y then
                 
-                local relativePosX = (mousePos.X - sliderPos.X) / sliderSize.X
-                relativePosX = math.clamp(relativePosX, 0, 1)
+                -- Start smoothness slider dragging
+                local draggingSmoothnessSlider = true
                 
-                -- Update knob position
-                smoothnessKnob.Position = UDim2.new(relativePosX, -8, 0.5, -8)
+                local function updateSmoothnessSlider()
+                    -- Calculate relative position
+                    local relativeX = math.clamp((inputPosition.X - smoothnessSliderPosition.X) / smoothnessSliderSize.X, 0, 1)
+                    
+                    -- Update smoothness value (0 to 1)
+                    smoothness = relativeX
+                    smoothnessValue.Text = string.format("%.1f", smoothness)
+                    
+                    -- Update slider visuals
+                    smoothnessSliderFill.Size = UDim2.new(smoothness, 0, 1, 0)
+                    smoothnessSliderKnob.Position = UDim2.new(smoothness, 0, 0.5, 0)
+                end
                 
-                -- Update progress bar width
-                smoothnessProgress.Size = UDim2.new(relativePosX, 0, 1, 0)
+                updateSmoothnessSlider()
                 
-                -- Update smoothness value
-                smoothness = relativePosX
-                smoothnessValue.Text = string.format("%.2f", smoothness)
+                -- Connect to input changed for dragging
+                local smoothnessDragConnection
+                smoothnessDragConnection = UserInputService.InputChanged:Connect(function(dragInput)
+                    if draggingSmoothnessSlider and dragInput.UserInputType == Enum.UserInputType.MouseMovement then
+                        inputPosition = dragInput.Position
+                        updateSmoothnessSlider()
+                    end
+                end)
+                
+                -- Connect to input ended to stop dragging
+                local smoothnessEndConnection
+                smoothnessEndConnection = UserInputService.InputEnded:Connect(function(endInput)
+                    if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                        draggingSmoothnessSlider = false
+                        smoothnessDragConnection:Disconnect()
+                        smoothnessEndConnection:Disconnect()
+                    end
+                end)
             end
             
-            -- Update fly speed slider
-            if isDraggingFlySpeedSlider then
-                local mousePos = input.Position
-                local sliderPos = flySpeedSlider.AbsolutePosition
-                local sliderSize = flySpeedSlider.AbsoluteSize
+            -- Check if click is on walkspeed slider
+            local walkspeedSliderPosition = walkspeedSliderBackground.AbsolutePosition
+            local walkspeedSliderSize = walkspeedSliderBackground.AbsoluteSize
+            
+            if inputPosition.X >= walkspeedSliderPosition.X and 
+               inputPosition.X <= walkspeedSliderPosition.X + walkspeedSliderSize.X and
+               inputPosition.Y >= walkspeedSliderPosition.Y and
+               inputPosition.Y <= walkspeedSliderPosition.Y + walkspeedSliderSize.Y then
                 
-                local relativePosX = (mousePos.X - sliderPos.X) / sliderSize.X
-                relativePosX = math.clamp(relativePosX, 0, 1)
+                -- Start walkspeed slider dragging
+                local draggingWalkspeedSlider = true
                 
-                -- Update knob position
-                flySpeedKnob.Position = UDim2.new(relativePosX, -8, 0.5, -8)
+                local function updateWalkspeedSlider()
+                    -- Calculate relative position
+                    local relativePosX = math.clamp((inputPosition.X - walkspeedSliderPosition.X) / walkspeedSliderSize.X, 0, 1)
+                    
+                    -- Update walkspeed value (max 180)
+                    walkspeed = math.floor(relativePosX * 180)
+                    walkspeedValue.Text = tostring(walkspeed)
+                    
+                    -- Update slider visuals
+                    walkspeedSliderFill.Size = UDim2.new(relativePosX, 0, 1, 0)
+                    walkspeedSliderKnob.Position = UDim2.new(relativePosX, 0, 0.5, 0)
+                    
+                    -- Apply immediately if walkspeed is enabled
+                    if walkspeedActive and localPlayer.Character and 
+                       localPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                        localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = walkspeed
+                    end
+                end
                 
-                -- Update progress bar width
-                flySpeedProgress.Size = UDim2.new(relativePosX, 0, 1, 0)
+                updateWalkspeedSlider()
                 
-                -- Update fly speed value (max 500)
-                flySpeed = math.floor(relativePosX * 500)
-                flySpeedValue.Text = tostring(flySpeed)
+                -- Connect to input changed for dragging
+                local walkspeedDragConnection
+                walkspeedDragConnection = UserInputService.InputChanged:Connect(function(dragInput)
+                    if draggingWalkspeedSlider and dragInput.UserInputType == Enum.UserInputType.MouseMovement then
+                        inputPosition = dragInput.Position
+                        updateWalkspeedSlider()
+                    end
+                end)
+                
+                -- Connect to input ended to stop dragging
+                local walkspeedEndConnection
+                walkspeedEndConnection = UserInputService.InputEnded:Connect(function(endInput)
+                    if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                        draggingWalkspeedSlider = false
+                        walkspeedDragConnection:Disconnect()
+                        walkspeedEndConnection:Disconnect()
+                    end
+                end)
             end
         end
     end)
     
-    -- Connect button click events
-    closeButton.MouseButton1Click:Connect(unloadScript)
+    -- Store the connection for cleanup
+    table.insert(connections, sliderConnection)
     
-    -- Keybind change functions
+    -- Handle key rebinding for camlock
+    local isRebindingCamlock = false
+    
     changeCamlockKeyButton.MouseButton1Click:Connect(function()
-        statusText.Text = "Press any key..."
-        
-        local connection
-        connection = UserInputService.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Keyboard then
-                -- Update the key binding
-                camlockKey = input.KeyCode
-                
-                -- Update the display name for the key
-                if not keyNames[camlockKey] then
-                    keyNames[camlockKey] = camlockKey.Name
-                end
-                
-                -- Update the text display
-                if isTargeting then
-                    statusText.Text = "ON (Press "..keyNames[camlockKey]..")"
-                else
+        if not isRebindingCamlock then
+            isRebindingCamlock = true
+            changeCamlockKeyButton.Text = "Press Key"
+            
+            local keyPressConnection
+            keyPressConnection = UserInputService.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    camlockKey = input.KeyCode
+                    keyNames[camlockKey] = input.KeyCode.Name
+                    changeCamlockKeyButton.Text = "Change"
                     statusText.Text = "OFF (Press "..keyNames[camlockKey]..")"
+                    isRebindingCamlock = false
+                    keyPressConnection:Disconnect()
                 end
-                
-                -- Clean up connection
-                connection:Disconnect()
-            end
-        end)
-    end)
-    
-    changeFlyKeyButton.MouseButton1Click:Connect(function()
-        flyStatusText.Text = "Press any key..."
-        
-        local connection
-        connection = UserInputService.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Keyboard then
-                -- Update the key binding
-                flyKey = input.KeyCode
-                
-                -- Update the display name for the key
-                if not keyNames[flyKey] then
-                    keyNames[flyKey] = flyKey.Name
-                end
-                
-                -- Update the text display
-                if isFlying then
-                    flyStatusText.Text = "ON (Press "..keyNames[flyKey]..")"
-                else
-                    flyStatusText.Text = "OFF (Press "..keyNames[flyKey]..")"
-                end
-                
-                -- Clean up connection
-                connection:Disconnect()
-            end
-        end)
-    end)
-    
-    -- Set up the instance to be synced if parent is provided
-    if self and self.Parent then
-        -- Parent it to PlayerGui or other container
-        screenGui.Parent = self.Parent
-    else
-        -- Parent to Coregui for normal script execution
-        local success, result = pcall(function()
-            return game:GetService("CoreGui")
-        end)
-        
-        if success then
-            screenGui.Parent = result
-        elseif localPlayer:FindFirstChild("PlayerGui") then
-            screenGui.Parent = localPlayer.PlayerGui
-        else
-            screenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+            end)
         end
+    end)
+    
+    -- Handle key rebinding for walkspeed
+    local isRebindingWalkspeed = false
+    
+    changeWalkspeedKeyButton.MouseButton1Click:Connect(function()
+        if not isRebindingWalkspeed then
+            isRebindingWalkspeed = true
+            changeWalkspeedKeyButton.Text = "Press Key"
+            
+            local keyPressConnection
+            keyPressConnection = UserInputService.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    walkspeedKey = input.KeyCode
+                    keyNames[walkspeedKey] = input.KeyCode.Name
+                    changeWalkspeedKeyButton.Text = "Change"
+                    walkspeedStatusText.Text = "OFF (Press "..keyNames[walkspeedKey]..")"
+                    isRebindingWalkspeed = false
+                    keyPressConnection:Disconnect()
+                end
+            end)
+        end
+    end)
+    
+    -- Handle the close button click
+    closeButton.MouseButton1Click:Connect(function()
+        unloadScript()
+    end)
+    
+    -- Add the GUI to the player's screen with enhanced compatibility
+    print("Attempting to make GUI visible with multiple methods...")
+    
+    -- Store attempts to debug visibility issues
+    local visibilityAttempts = {}
+    
+    -- First try all exploit-specific methods
+    if syn and syn.protect_gui then
+        table.insert(visibilityAttempts, "Synapse X method")
+        syn.protect_gui(screenGui)
+        screenGui.Parent = game:GetService("CoreGui")
+    elseif protect_gui then
+        table.insert(visibilityAttempts, "protect_gui method")
+        protect_gui(screenGui)
+        screenGui.Parent = game:GetService("CoreGui")
+    elseif KRNL_LOADED and get_hidden_gui then
+        table.insert(visibilityAttempts, "KRNL method")
+        screenGui.Parent = get_hidden_gui()
+    elseif gethui then
+        table.insert(visibilityAttempts, "gethui method")
+        screenGui.Parent = gethui()
+    elseif gethiddengui then
+        table.insert(visibilityAttempts, "gethiddengui method")
+        screenGui.Parent = gethiddengui()
+    elseif hiddenUI then
+        table.insert(visibilityAttempts, "hiddenUI method")
+        screenGui.Parent = hiddenUI
+    elseif game:GetService("CoreGui"):FindFirstChild("RobloxGui") then
+        table.insert(visibilityAttempts, "RobloxGui method")
+        screenGui.Parent = game:GetService("CoreGui").RobloxGui
+    else
+        -- Attempt standard methods as fallbacks
+        table.insert(visibilityAttempts, "Standard PlayerGui method")
+        pcall(function() screenGui.Parent = localPlayer:FindFirstChildOfClass("PlayerGui") end)
     end
     
-    return screenGui
+    -- If nothing has worked, try direct methods
+    if not screenGui.Parent or screenGui.Parent == nil then
+        table.insert(visibilityAttempts, "Direct CoreGui method")
+        pcall(function() screenGui.Parent = game:GetService("CoreGui") end)
+    end
+    
+    -- Last resort direct PlayerGui
+    if not screenGui.Parent or screenGui.Parent == nil then
+        table.insert(visibilityAttempts, "Direct PlayerGui method (last resort)")
+        pcall(function() screenGui.Parent = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui") end)
+    end
+    
+    -- Print all attempts for debugging
+    print("GUI visibility attempts:", table.concat(visibilityAttempts, ", "))
+    
+    -- Force update GUI visibility properties to ensure it shows
+    screenGui.IgnoreGuiInset = true
+    screenGui.DisplayOrder = 999
+    screenGui.ZIndex = 9999
+    
+    -- Make GUI elements visible explicitly
+    mainFrame.Visible = true
+    
+    -- Configure ResetOnSpawn to ensure the GUI persists
+    screenGui.ResetOnSpawn = false
+    
+    -- Force a redraw
+    task.spawn(function()
+        task.wait(0.1)
+        if mainFrame and mainFrame:IsDescendantOf(game) then
+            local oldPos = mainFrame.Position
+            mainFrame.Position = oldPos + UDim2.new(0, 1, 0, 0)
+            task.wait()
+            mainFrame.Position = oldPos
+        end
+    end)
+    
+    print("GUI creation complete, should now be visible")
 end
 
 -- Function to find the closest player for targeting
 local function findClosestPlayer()
-    local closest = nil
-    local minDistance = maxDistance
-    local myPosition = nil
+    local closestPlayer = nil
+    local closestDistance = maxDistance
     
-    -- Check if local player's character exists
-    if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        myPosition = localPlayer.Character.HumanoidRootPart.Position
-        
-        -- Loop through all players
-        for _, player in pairs(Players:GetPlayers()) do
-            -- Skip the local player
-            if player ~= localPlayer and 
-               player.Character and 
-               player.Character:FindFirstChild("HumanoidRootPart") and
-               player.Character:FindFirstChild("Head") and
-               player.Character:FindFirstChild("Humanoid") and
-               player.Character.Humanoid.Health > 0 then
-                
-                -- Calculate distance to player
-                local distance = (myPosition - player.Character.HumanoidRootPart.Position).Magnitude
-                
-                -- Update closest player if this one is closer
-                if distance < minDistance then
-                    closest = player
-                    minDistance = distance
+    for _, player in pairs(Players:GetPlayers()) do
+        -- Skip ourselves
+        if player ~= localPlayer then
+            -- Make sure both the local player and the target have characters
+            if localPlayer.Character and player.Character then
+                -- Check if the target player has a HumanoidRootPart and Head
+                if player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Head") then
+                    -- Calculate distance between us and them
+                    local distance = (localPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    
+                    -- If they're closer than the current closest, update
+                    if distance < closestDistance then
+                        closestPlayer = player
+                        closestDistance = distance
+                    end
                 end
             end
         end
     end
     
-    return closest
+    return closestPlayer
 end
 
--- Function to apply a highlight to the targeted player
+-- Function to apply highlight effect to a targeted player
 local function applyHighlight(player)
     -- Remove any existing highlight
     if highlight then
@@ -845,7 +880,7 @@ local function applyHighlight(player)
         highlight = nil
     end
     
-    -- Create a new highlight if the player exists and has a character
+    -- Apply new highlight if player has a character
     if player and player.Character then
         -- Create a new highlight
         highlight = Instance.new("Highlight")
@@ -868,7 +903,11 @@ local function toggleTargeting()
         -- When targeting is turned on, find a target
         guiElements.statusText.Text = "ON (Press "..keyNames[camlockKey]..")"
         guiElements.statusText.TextColor3 = Color3.fromRGB(0, 255, 0)
+        guiElements.statusIndicator.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+        
+        -- Find the target player
         targetPlayer = findClosestPlayer()
+        print("Target player found:", targetPlayer and targetPlayer.Name or "none")
         
         -- Apply highlight to the targeted player
         if targetPlayer then
@@ -878,6 +917,7 @@ local function toggleTargeting()
         -- When targeting is turned off, clear the target
         guiElements.statusText.Text = "OFF (Press "..keyNames[camlockKey]..")"
         guiElements.statusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+        guiElements.statusIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
         targetPlayer = nil
         
         -- Remove highlight
@@ -886,16 +926,111 @@ local function toggleTargeting()
             highlight = nil
         end
     end
+    
+    -- Print confirmation
+    print("Targeting toggled to:", isTargeting)
 end
 
--- Connect to the input service to detect key presses for camlock
+-- Function to initialize walkspeed - store original value
+local function initWalkspeed()
+    if not originalWalkspeed and localPlayer and localPlayer.Character then
+        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            originalWalkspeed = humanoid.WalkSpeed
+            print("Original walkspeed stored:", originalWalkspeed)
+        end
+    end
+end
+
+-- Function to toggle walkspeed on/off
+local function toggleWalkspeed()
+    -- Initialize if needed
+    if not originalWalkspeed then
+        initWalkspeed()
+    end
+    
+    -- Toggle the state
+    walkspeedActive = not walkspeedActive
+    
+    -- Update UI
+    if walkspeedActive then
+        -- Turn on walkspeed
+        guiElements.walkspeedStatusText.Text = "ON (Press "..keyNames[walkspeedKey]..")"
+        guiElements.walkspeedStatusText.TextColor3 = Color3.fromRGB(0, 255, 0)
+        guiElements.walkspeedStatusIndicator.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+        
+        -- Apply walkspeed
+        if localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            -- Apply multiple times to ensure it takes effect
+            for i = 1, 5 do
+                task.spawn(function()
+                    localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = walkspeed
+                    task.wait(0.1)
+                    localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = walkspeed
+                end)
+                task.wait(0.05)
+            end
+        end
+    else
+        -- Turn off walkspeed
+        guiElements.walkspeedStatusText.Text = "OFF (Press "..keyNames[walkspeedKey]..")"
+        guiElements.walkspeedStatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+        guiElements.walkspeedStatusIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        
+        -- Reset walkspeed to original value
+        if localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            if originalWalkspeed then
+                localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = originalWalkspeed
+            else
+                localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16 -- Default
+            end
+        end
+    end
+    
+    print("Walkspeed toggled to: " .. tostring(walkspeedActive) .. ", value: " .. tostring(walkspeed))
+end
+
+-- Set up a continuous walkspeed update loop when active
+local walkspeedUpdateConnection = RunService.Heartbeat:Connect(function()
+    if walkspeedActive and localPlayer and localPlayer.Character then
+        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid and humanoid.WalkSpeed ~= walkspeed then
+            humanoid.WalkSpeed = walkspeed
+        end
+    end
+end)
+
+-- Store the connection for cleanup
+table.insert(connections, walkspeedUpdateConnection)
+
+-- Connect to the character added event for respawns
+local characterAddedConnection = localPlayer.CharacterAdded:Connect(function(character)
+    task.wait(0.5) -- Wait for character to fully load
+    
+    if walkspeedActive then
+        local humanoid = character:WaitForChild("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = walkspeed
+            print("Applied walkspeed after respawn:", walkspeed)
+        end
+    end
+end)
+
+-- Store the connection for cleanup
+table.insert(connections, characterAddedConnection)
+
+-- Connect to the input service to detect key presses
 local inputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
     -- Only process if we're not in a text box or something
     if not gameProcessed then
         -- Check if the camlock key was pressed to toggle targeting
         if input.KeyCode == camlockKey then
-            -- Functions still work even when the GUI is hidden
             toggleTargeting()
+        end
+        
+        -- Check if the walkspeed key was pressed
+        if input.KeyCode == walkspeedKey then
+            toggleWalkspeed()
         end
     end
 end)
@@ -915,18 +1050,11 @@ local function updateCamera()
         local rootPosition = localPlayer.Character.HumanoidRootPart.Position
         local targetPosition = targetPlayer.Character.Head.Position
         
-        -- Check if target is still in range
-        local distance = (rootPosition - targetPosition).Magnitude
-        if distance > maxDistance then
-            -- Target moved too far away, find a new target
-            targetPlayer = findClosestPlayer()
-            if not targetPlayer then
-                return
-            end
-        end
+        -- Even if target is out of range, keep targeting the same player
+        -- (The camera lock will stay on until manually toggled off by pressing C)
         
         -- Apply highlight to the targeted player regardless of camera mode
-        if highlight == nil or highlight.Adornee ~= targetPlayer.Character then
+        if highlight == nil or targetPlayer.Character ~= highlight.Adornee then
             applyHighlight(targetPlayer)
         end
 
@@ -947,256 +1075,11 @@ local cameraConnection = RunService.RenderStepped:Connect(updateCamera)
 -- Store this connection for cleanup
 table.insert(connections, cameraConnection)
 
--- Function to toggle GUI visibility (show/hide)
-local function toggleGuiVisibility()
-    if guiElements.mainFrame then
-        guiVisible = not guiVisible
-        guiElements.mainFrame.Visible = guiVisible
-        print("GUI visibility toggled: " .. (guiVisible and "Visible" or "Hidden") .. " (Press Right Ctrl to toggle)")
-    end
-end
-
--- Connect Right Ctrl key to toggle GUI visibility
-local guiToggleConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightControl then
-        toggleGuiVisibility()
-    end
-end)
-
--- Store this connection for cleanup
-table.insert(connections, guiToggleConnection)
-
--- Function to toggle flying
-local function toggleFlying()
-    isFlying = not isFlying
-    
-    if isFlying then
-        -- Update the GUI
-        guiElements.flyStatusText.Text = "ON (Press "..keyNames[flyKey]..")"
-        guiElements.flyStatusText.TextColor3 = Color3.fromRGB(0, 255, 0)
-        
-        -- Make sure we have access to the character's humanoid
-        if not localPlayer.Character or not localPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            isFlying = false
-            guiElements.flyStatusText.Text = "OFF (Press "..keyNames[flyKey]..")"
-            guiElements.flyStatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
-            return
-        end
-        
-        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
-        local rootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
-        
-        -- Store the original state to reset it later
-        local oldGravity = workspace.Gravity
-        local oldState = humanoid:GetState()
-        
-        -- Configure character for flying
-        workspace.Gravity = 0
-        humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-        rootPart.Velocity = Vector3.new(0, 0, 0)
-        
-        -- Create an anchor part to keep character stable when not moving
-        if not rootPart:FindFirstChild("FlyAnchor") then
-            local anchor = Instance.new("BodyPosition")
-            anchor.Name = "FlyAnchor"
-            anchor.MaxForce = Vector3.new(0, 0, 0) -- Initially disabled
-            anchor.P = 100000 -- Strong force when enabled
-            anchor.D = 1000 -- Damping to prevent oscillation
-            anchor.Position = rootPart.Position
-            anchor.Parent = rootPart
-        end
-        
-        -- Show a success message
-        print("Fly mode activated. Use WASD, Space, and Left Shift to fly.")
-    else
-        -- Update the GUI
-        guiElements.flyStatusText.Text = "OFF (Press "..keyNames[flyKey]..")"
-        guiElements.flyStatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
-        
-        -- Save the current facing direction before disabling fly
-        local currentFacingDirection = nil
-        if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local rootPart = localPlayer.Character.HumanoidRootPart
-            -- Store the current look vector (horizontal only)
-            local lookVector = rootPart.CFrame.LookVector
-            currentFacingDirection = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
-        end
-        
-        -- Reset gravity and character state if character exists
-        if localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            workspace.Gravity = 196.2 -- Default Roblox gravity
-            local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
-            local rootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
-            
-            -- Remove the fly anchor if it exists
-            if rootPart:FindFirstChild("FlyAnchor") then
-                rootPart.FlyAnchor:Destroy()
-            end
-            
-            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-            
-            -- Restore the character's facing direction
-            if currentFacingDirection then
-                -- Apply the saved facing direction
-                rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + currentFacingDirection)
-                humanoid:Move(currentFacingDirection, false)
-            end
-        end
-        
-        -- Reset all movement keys
-        for key, _ in pairs(flyKeys) do
-            flyKeys[key] = false
-        end
-        
-        print("Fly mode deactivated.")
-    end
-end
-
--- Connect keyboard input for flying
-local flyKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed then
-        -- Check for fly toggle - functions still work even when GUI is hidden
-        if input.KeyCode == flyKey then
-            toggleFlying()
-            return
-        end
-        
-        -- Check for movement keys
-        if input.KeyCode == Enum.KeyCode.W then
-            flyKeys.W = true
-        elseif input.KeyCode == Enum.KeyCode.A then
-            flyKeys.A = true
-        elseif input.KeyCode == Enum.KeyCode.S then
-            flyKeys.S = true
-        elseif input.KeyCode == Enum.KeyCode.D then
-            flyKeys.D = true
-        elseif input.KeyCode == Enum.KeyCode.Space then
-            flyKeys.Space = true
-        elseif input.KeyCode == Enum.KeyCode.LeftShift then
-            flyKeys.LeftShift = true
-        end
-    end
-end)
-
--- Connect keyboard release for flying
-local flyKeyReleaseConnection = UserInputService.InputEnded:Connect(function(input, gameProcessed)
-    if not gameProcessed then
-        -- Check for movement keys
-        if input.KeyCode == Enum.KeyCode.W then
-            flyKeys.W = false
-        elseif input.KeyCode == Enum.KeyCode.A then
-            flyKeys.A = false
-        elseif input.KeyCode == Enum.KeyCode.S then
-            flyKeys.S = false
-        elseif input.KeyCode == Enum.KeyCode.D then
-            flyKeys.D = false
-        elseif input.KeyCode == Enum.KeyCode.Space then
-            flyKeys.Space = false
-        elseif input.KeyCode == Enum.KeyCode.LeftShift then
-            flyKeys.LeftShift = false
-        end
-    end
-end)
-
--- Store the key connections for cleanup
-table.insert(connections, flyKeyConnection)
-table.insert(connections, flyKeyReleaseConnection)
-
--- Function to update flying movement based on key presses
-local function updateFlyMovement()
-    if isFlying and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local rootPart = localPlayer.Character.HumanoidRootPart
-        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
-        local currentCFrame = camera.CFrame
-        local flyVelocity = Vector3.new(0, 0, 0)
-        local anyKeyPressed = false
-        
-        -- Calculate fly direction based on camera orientation
-        if flyKeys.W then
-            flyVelocity = flyVelocity + currentCFrame.LookVector
-            anyKeyPressed = true
-        end
-        if flyKeys.S then
-            flyVelocity = flyVelocity - currentCFrame.LookVector
-            anyKeyPressed = true
-        end
-        if flyKeys.A then
-            flyVelocity = flyVelocity - currentCFrame.RightVector
-            anyKeyPressed = true
-        end
-        if flyKeys.D then
-            flyVelocity = flyVelocity + currentCFrame.RightVector
-            anyKeyPressed = true
-        end
-        if flyKeys.Space then
-            flyVelocity = flyVelocity + Vector3.new(0, 1, 0)
-            anyKeyPressed = true
-        end
-        if flyKeys.LeftShift then
-            flyVelocity = flyVelocity - Vector3.new(0, 1, 0)
-            anyKeyPressed = true
-        end
-        
-        -- Get anchor if it exists
-        local anchor = rootPart:FindFirstChild("FlyAnchor")
-        
-        -- Normalize velocity for consistent speed regardless of direction
-        if flyVelocity.Magnitude > 0 then
-            flyVelocity = flyVelocity.Unit * flySpeed
-            
-            -- Determine the character's facing direction based on movement keys
-            -- This maintains normal character orientation controls
-            local moveDir = Vector3.new(0, 0, 0)
-            
-            -- Get the flat movement direction (ignoring vertical movement)
-            local flatVelocity = Vector3.new(flyVelocity.X, 0, flyVelocity.Z)
-            
-            -- Only change facing direction if there's horizontal movement
-            if flatVelocity.Magnitude > 0.1 then
-                -- Set the humanoid's move direction for proper character facing
-                humanoid:Move(flatVelocity, false)
-                
-                -- If the character has a facing direction, make it face the movement direction
-                local moveLookVector = flatVelocity.Unit
-                local characterFacingCFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + moveLookVector)
-                rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + moveLookVector)
-            end
-            
-            -- Disable anchor when moving
-            if anchor then
-                anchor.MaxForce = Vector3.new(0, 0, 0)
-            end
-            
-            -- Apply velocity when keys are pressed
-            rootPart.Velocity = flyVelocity
-        else
-            -- Stabilize the character when no keys are pressed
-            if anchor then
-                -- Update anchor position to current position
-                anchor.Position = rootPart.Position
-                -- Enable anchor to lock position in place
-                anchor.MaxForce = Vector3.new(9999999, 9999999, 9999999)
-            else
-                -- If no anchor exists (shouldn't happen), apply minimal velocity
-                rootPart.Velocity = Vector3.new(0, 0.1, 0)
-            end
-        end
-    end
-end
-
--- Connect our fly movement function to RunService's Heartbeat event
-local flyMovementConnection = RunService.Heartbeat:Connect(updateFlyMovement)
-
--- Store the fly connection for cleanup
-table.insert(connections, flyMovementConnection)
-
 -- Print initial instructions
 print("=== ghst.lol Camera Lock Script ===")
 print("Press 'C' to toggle camera lock on/off")
-print("Press 'X' to toggle fly mode")
-print("Press 'Right Ctrl' to show/hide the GUI")
-print("Use WASD, Space (up), and Left Shift (down) to control flight")
-print("Adjust smoothness and fly speed (max 500) with the sliders")
+print("Press 'V' to toggle walkspeed mode")
+print("Adjust smoothness and walkspeed with the sliders")
 print("Change keybinds using the 'Change' buttons in the GUI")
 print("Use the X button to unload the script and reset everything")
 print("=== Created by ghst.lol ===")
@@ -1217,17 +1100,25 @@ function unloadScript()
         highlight = nil
     end
     
-    -- Turn off flying
-    if isFlying then
-        toggleFlying()
+    -- Turn off walkspeed
+    if walkspeedActive then
+        walkspeedActive = false
+        if localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            if originalWalkspeed then
+                localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = originalWalkspeed
+            else
+                localPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16 -- Default
+            end
+        end
     end
     
     -- Restore camera
     camera.CameraType = Enum.CameraType.Custom
     
     -- Remove GUI
-    if guiElements.mainFrame then
-        guiElements.mainFrame:Destroy()
+    if guiElements.mainFrame and guiElements.mainFrame.Parent then
+        local screenGui = guiElements.mainFrame.Parent
+        screenGui:Destroy()
     end
     
     -- Print unload message
